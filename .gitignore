@@ -1,0 +1,26 @@
+*.o
+*.d
+*.map
+*.lst
+*/obj
+obj/
+Listings/
+*/DebugConfig/
+DebugConfig/
+*/Listings/
+# */.vscode/
+*.uvguix.Y
+*.uvoptx
+*.dbgconf
+*.axf
+*.crf
+*._2i
+# *.log
+# *.txt
+*.bat
+*.scvd
+*.lock
+# *.json
+*.uvprojx
+# .gitignore
+

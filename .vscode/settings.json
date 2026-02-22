@@ -1,0 +1,33 @@
+{
+    "files.associations": {
+        "stdint.h": "c",
+        "core_cm3.h": "c",
+        "system_stm32f10x.h": "c",
+        "stm32f10x.h": "c",
+        "misc.h": "c",
+        "stm32f10x_tim.h": "c",
+        "stdlib.h": "c",
+        "string.h": "c",
+        "_ansi.h": "c",
+        "swi.h": "c",
+        "arm.h": "c",
+        "delay.h": "c",
+        "usart.h": "c",
+        "lwrb.h": "c",
+        "stddef.h": "c",
+        "rtc.h": "c",
+        "key.h": "c",
+        "iic.h": "c",
+        "u8g2_monochrome_display.h": "c",
+        "u8g2.h": "c",
+        "oled.h": "c",
+        "hw_iic.h": "c",
+        "mpu6050.h": "c",
+        "inv_mpu_dmp_motion_driver.h": "c",
+        "mpu6050_dmp.h": "c",
+        "dma_usart.h": "c",
+        "math.h": "c"
+    },
+    "cortex-debug.variableUseNaturalFormat": false,
+    "cmake.ignoreCMakeListsMissing": true
+}

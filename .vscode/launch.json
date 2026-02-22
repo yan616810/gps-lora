@@ -1,0 +1,147 @@
+/*
+0. 指定要调试的.elf文件
+1. 指定描述芯片寄存器视图的.svd文件
+2. 指定调试器启动后将程序运行到哪儿(main函数处或其他函数处)
+3. 配置 OpenOCD 服务器，指定.cfg文件的目录；选择你所使用的探针(调试适配器)的.cfg和系列的.cfg;
+4. 配置 GDB 调试器，指定gdb调试器的路径和OpenOCD服务器监听的地址和端口；
+******************************两种调试模式*******************************************
+!!当使用"request": "launch"时，调试器会尝试重置芯片并加载程序到芯片中，适合从头开始调试程序。
+!!当使用"request": "attach"时，注释掉调试前的烧录任务("preLaunchTask")和gdb调试器接收的命令("preLaunchCommands"),适合调试器连接到已经在运行的芯片上。
+!!说明：makefile中的烧录命令"program $< verify reset exit"中的reset实际效果是重置并运行，烧录完成且芯片验证后会复位运行，运行到程序某个位置后，调试器上场Cortex-debug插件执行默认重置运行等操作，一直运行到runToEntryPoint指定的函数，不占用硬件断点
+*/
+
+{
+    // 使用 IntelliSense 了解相关属性。 
+    // 悬停以查看现有属性的描述。
+    // 欲了解更多信息，请访问: https://go.microsoft.com/fwlink/?linkid=830387
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "preLaunchTask": "Flash with OpenOCD",
+            "executable"     : "./obj/GPS_LoRa.elf", 
+            "request"        : "launch",//launch:启动新调试会话 attach:附加到现有进程,不打扰芯片正在运行这的程序            
+            "name"           : "Debug with OpenOCD",
+            "type"           : "cortex-debug",
+            "cwd"            : "${workspaceRoot}",
+            "toolchainPrefix": "/home/ylad/tools/arm-gnu-toolchain-14.3.rel1-x86_64-arm-none-eabi/bin/arm-none-eabi-",
+        // ========== 外设视图 + 调试输出 ==========
+            "svdFile": "${workspaceFolder}/STM32F103.svd",
+            "showDevDebugOutput": "none",//both,none,raw,parsed
+        // ========== 指明调试器启动后将程序运行到哪 ==========
+            "runToEntryPoint": "rx_data_proc",  //OpenOCD 直接在硬件层面把程序跑到 main;不使用postLaunchCommands因为慢(要等 GDB 解析符号表、下断点、再 continue)
+        // ========== OpenOCD 配置 ==========
+            "servertype"     : "openocd",
+            "searchDir"         : [
+                "/usr/share/openocd/scripts/"
+            ],
+            "configFiles": [
+                "interface/cmsis-dap.cfg",
+                "target/stm32f1x.cfg"
+            ],
+        // ========== GDB 配置 ==========
+            "gdbPath"  : "/home/ylad/tools/arm-gnu-toolchain-14.3.rel1-x86_64-arm-none-eabi/bin/arm-none-eabi-gdb",
+            "gdbTarget": "127.0.0.1:3333",
+            "preLaunchCommands": [
+                "set mem inaccessible-by-default off",
+                "set arch auto"
+            ],
+        }
+    ]
+}
+
+
+// {
+//     // 使用 IntelliSense 了解相关属性。 
+//     // 悬停以查看现有属性的描述。
+//     // 欲了解更多信息，请访问: https://go.microsoft.com/fwlink/?linkid=830387
+//     "version": "0.2.0",
+//     "configurations": [
+//         {
+//             "preLaunchTask": "Flash with OpenOCD",          //启动调试前自动执行的任务标签，前提是tasks.json中有对应的任务配置
+//             "name"              : "Debug with OpenOCD",     //此调试配置名称
+//             "type"              : "cortex-debug",           //专为 ARM Cortex 设备调试设计
+//             "request"           : "launch",                 //表示启动新调试会话（而非附加到现有进程
+//             "cwd"               : "${workspaceRoot}",       //从哪个目录启动调试,即从哪个目录运行这些命令：如终端中启动openocd服务器，GDB连接openocd服务器
+// /**************************OpenOCD****************************************************/
+//         /*以下配置用于开启openocd服务器在localhost:3333*/
+//             "servertype"        : "openocd",                //使用 OpenOCD 作为 GDB-Server
+//             // "searchDir"         : [//指定 OpenOCD 配置文件搜索路径
+//             //     "/usr/share/openocd/scripts/"
+//             // ],
+//             "configFiles"       : [//指定 OpenOCD 配置文件
+//                 "interface/cmsis-dap.cfg",                  // 调试接口配置文件，例如 ST-Link,cmsis-dap
+//                 "target/stm32f1x.cfg"                       // 目标设备配置文件，根据你的设备调整
+//             ],
+//         /*这些命令是直接传给 OpenOCD 服务器的，用于启动和配置 OpenOCD 本身*/
+//             // "openOCDLaunchCommands": [//指定 OpenOCD 启动命令
+//             //     "init",                                     //初始化 OpenOCD，配置调试接口（JTAG/SWD）、目标设备（例如 STM32 的 Flash 和时钟设置）
+//             //     "reset halt",                               //让目标设备复位并暂停，PC 重置到复位向量（例如 0x08000004），但 CPU 不运行，等待调试器指令
+//             //     "flash write_image erase ${workspaceFolder}/obj/ylad_led_blink.elf", //烧录指定的 ELF 文件到目标芯片，根据.ld指明的存储位置而不是运行时位置
+//             //     "reset halt"                                 //复位并运行目标设备，执行硬件复位，释放 CPU 运行，PC 指向复位向量，程序直接从 Flash 执行
+//             // ],
+// /****************************GDB***********************************************/
+//         /*GDB连接到OpenOCD服务器配置*/
+//             "gdbPath": "/home/ylad/tools/arm-gnu-toolchain-14.3.rel1-x86_64-arm-none-eabi/bin/arm-none-eabi-gdb", // GDB 可执行文件路径
+//             "gdbTarget": "127.0.0.1:50000",                  //连接到在本地运行的openocd服务器50000端口
+//         /*下面三个配置都是直接传给gdb的(但是gdb使用monitor可以间接传给openocd)，作用详见：https://github.com/Marus/cortex-debug/wiki/Cortex-Debug-Under-the-hood*/
+//             "preLaunchCommands": [//一组用户定义的命令，应该在gdb连接到gdb服务器之前使用，传给arm-none-eabi-gdb.exe
+//                 "set mem inaccessible-by-default off",      // 允许访问所有内存
+//                 "set architecture arm"                      // 设置目标架构
+//             ],
+//             "overrideLaunchCommands": [//gdb连接到openocd服务器后，首先向openocd发送的命令，下面这些命令是通过 GDB 发送给 OpenOCD 的
+//                 //openocd的一般命令详见：https://openocd.org/doc-release/html/General-Commands.html#Target-State-handling
+//                 "monitor reset halt",                       // 通过 GDB 的 monitor 命令让 OpenOCD复位并暂停设备
+//                 "monitor flash protect 0 0 last off",       // 取消对闪存的保护
+//                 //不常用// "load",                                     // 通过 GDB 加载 ELF 文件到目标设备的运行时地址（.data通常是 RAM）
+//                 //不常用，只保留openOCDLaunchCommands中的烧录命令即可//"monitor flash write_image erase ${workspaceFolder}/obj/ylad_led_blink.elf", // 擦除 Flash 并写入 ELF 文件
+//                 "monitor reset init"                        // 再次复位并暂停设备，确保初始化
+//             ],
+//             "postLaunchCommands": [//一组用户定义的命令，应在设备重置并准备就绪后使用
+//                 /*此处的作用和"runToEntryPoint"   : "main",作用一样都是执行到main停止*/
+//                 "break main",                               // 在 main 函数设置断点
+//                 "continue"                                   // 继续运行到 main
+//             ],
+// /************************SVD*******.elf***************************************************/
+//         /*杂项*/
+//             // "runToEntryPoint"   : "main",                   //调试启动后自动运行到 main 函数，若有更复杂的需求可使用"postLaunchCommands": [],来自定义
+//             // "showDevDebugOutput": "none",                   //不显示详细调试日志
+//             "showDevDebugOutput": "raw",                    //显示原始调试输出
+//             // "showDevDebugOutput": "parsed",                 // 显示解析后的调试输出，便于排查问题
+//             "svdFile": "${workspaceFolder}/STM32F103.svd", //外设视图文件
+//             "executable"        : "obj/ylad_gps_oled.elf",            //此处被arm-none-eabi-gdb.exe *.elf和(gdb)load使用，严格按照链接脚本中的运行时地址将固件存到芯片中(如.text>flash,.data>ram,.bss>ram中但.data>ram存到flash才适合我写的c启动文件),不支持通配符，要手动修改指定唯一的.elf文件
+//         }
+//     ]
+// }
+
+/* 官方示例 */
+// // FILE:  ${workspaceRoot}/.vscode/launch.json
+// {
+//    // The cwd for debug sessions is the top of my source tree.
+//    "cwd" : "${workspaceRoot}"
+//    // Path from {workspaceRoot} to your ELF file it might be placed elsewhere.
+//    "executable": "Build/debug.d/app_riscv_test.debug.elf",
+//    // For humans in the VSCODE selection window give this a human friendly name
+//    "name": "debug with OpenOCD",
+//    // in this example: tools are not in the path, so absolute paths are required.
+//    // in this example: debugging RiscV on a MicroSemi PolarfireFPGA using a tool chain from Microsemi.
+//    "gdbPath" : "/tools/Microchip/SoftConsole-v2021.1/riscv-unknown-elf-gcc/bin/riscv64-unknown-elf-gdb",
+//    // cortex-debug requires a few more tools then just GDB.
+//    // This is the prefix for those tools, ie: Like Linux kernel: NM=$(CROSS_COMPILE)nm 
+//    "toolchainPrefix" : "/tools/Microchip/SoftConsole-v2021.1/riscv-unknown-elf-gcc/bin/riscv64-unknown-elf-",
+//    // I this example the author develops on a Linux machine (Linux Server in a data center not locally on a laptop)
+//    // The physical target (a Polarfire FPGA development board) is local to the laptop via USB
+//    // And - OpenOCD is launched locally on the laptop via a batch file specific to the board & laptop or lab-computer
+//    // Thus VS CODE does not launch OpenOCD, and the servertype is "external", not "openocd"
+//    "servertype" : "external",  
+//    // Need to tell GDB how to talk to openocd, often it is: "localhost:3333" or an IP address, ie: "10.23.42.220:3333" 
+//    // GDB sees this as: "target remote HOSTNAME:PORT" - this needs to match your OpenOCD invocation.
+//    // Change "mylaptop.mycompany.local" to a name that works for you (or hard code the IP address yuck but it works)
+//    "gdbTarget": "127.0.0.1:3333",
+//    // attach to a running target and halt (Handy if your code has hung)
+//    // Hint: In the gdb prompt/console, type 3 commands: 
+//    //   "load" to load your application, program counter will be at the reset vector.
+//    //   "tbreak main" - sets a temporary breakpoint at main.
+//    //   "continue" - target runs/executes-opcodes and should break at main.
+//    //    Or - if you can step through (and debug) faulty startup code.
+//    "request" : "attach"
+// }

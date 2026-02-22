@@ -1,0 +1,103 @@
+/*
+1.与调试器集成：
+            如果你需要调试编译后的程序，可以配置 launch.json 来配合 tasks.json，例如指定 preLaunchTask 为 "Build with make"，确保调试前自动编译。
+
+*/
+{
+    "version": "2.0.0",
+    "tasks": [
+        {
+            "label": "Flash with OpenOCD",
+            "type": "shell",
+            "command": "make",
+            "args": [
+                "flash"
+            ],
+            "group": {
+                "kind": "build",
+                "isDefault": false
+            },
+            "problemMatcher": [
+                "$gcc"
+            ],
+            "detail": "使用 OpenOCD 刷写程序到 STM32F1 芯片-Run openocd to flash the program to STM32F1 chip."
+        },
+        {
+            "label": "Rebuild with make",
+            "type": "shell",
+            "command": "bash",
+            "args": [
+                "-c",
+                "make clean && make -j20"
+            ],
+            "options": {
+                "cwd": "${workspaceFolder}"
+            },
+            "problemMatcher": [
+                "$gcc"
+            ],
+            "group": {
+                "kind": "build",
+                "isDefault": false
+            },
+            "detail": "完全重新构建整个工程-Run make clean all to rebuild the project."
+        },
+        {
+            "label": "Build with make",
+            "type": "shell",
+            "command": "make",
+            "args": [
+                "-j20"   //避免把多个参数放在一个字符串里，所以不用写成-j4 all，而是直接写成一个字符串默认执行all
+            ],
+            "options": {
+                "cwd": "${workspaceFolder}" //指明命令在终端的哪个目录执行
+            },
+            "problemMatcher": [
+                "$gcc"
+            ],
+            "group": {
+                "kind": "build",
+                "isDefault": false // 该任务不是默认构建任务
+            },
+            "detail": "构建整个工程-Run make to build the project based on Makefile."
+        },
+        {
+            "label": "Clean with make",
+            "type": "shell",
+            "command": "make",
+            "args": [
+                "clean"
+            ],
+            "options": {
+                "cwd": "${workspaceFolder}"
+            },
+            "problemMatcher": [
+                "$gcc"
+            ],
+            "group": {
+                "kind": "build",
+                "isDefault": false
+            },
+            "detail": "删除.obj目录文件-Run make clean to remove generated files."
+        },
+        {
+            "label": "Help with make",
+            "type": "shell",
+            "command": "make",
+            "args": [
+                "help"
+            ],
+            "options": {
+                "cwd": "${workspaceFolder}"
+            },
+            "problemMatcher": [
+                "$gcc"
+            ],
+            "group": {
+                "kind": "build",
+                "isDefault": false
+            },
+            "detail": "列出所有make目标-make help to display help information."
+        }
+    ]
+}
