@@ -1,7 +1,7 @@
 // /* Support files for GNU libc.  Files in the system namespace go here.
 //    Files in the C namespace (ie those that do not start with an
 //    underscore) go in .c.  */
-// #include "USART.h"
+#include "USART.h"
 
 #include <_ansi.h>
 #include <sys/types.h>
@@ -82,18 +82,18 @@ void * _sbrk (ptrdiff_t incr)
 }
 
 
-// int _write(int fd, const void *ptr, size_t len) {
-//     if (fd == STDOUT_FILENO || fd == STDERR_FILENO) { // stdout=1, stderr=2
-//         // const char *buf = (const char *)ptr;
-//         usart2_send_Hex((uint8_t *)ptr, len);
-//         // for (size_t i = 0; i < len; i++) {
-//         //     usart2_send_Char(buf[i]); // 你的 UART 发送函数
-//         // }
-//         return len; // 返回写入的字节数
-//     }
-//     errno = EBADF; // 不支持其他文件描述符
-//     return -1;
-// }
+int _write(int fd, const void *ptr, size_t len) {
+    if (fd == STDOUT_FILENO || fd == STDERR_FILENO) { // stdout=1, stderr=2
+        // const char *buf = (const char *)ptr;
+        usart1_send_Hex((uint8_t *)ptr, len);
+        // for (size_t i = 0; i < len; i++) {
+        //     usart2_send_Char(buf[i]); // 你的 UART 发送函数
+        // }
+        return len; // 返回写入的字节数
+    }
+    errno = EBADF; // 不支持其他文件描述符
+    return -1;
+}
 
 
 

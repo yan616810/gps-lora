@@ -11,44 +11,113 @@
 
 #include "stm32f10x.h"
 #include "Delay.h"
+//OLED
 #include "OLED.h"
 #include "iic.h"
+//USART
+#include "USART.h"
+#include <stdio.h>
+
+
+
+
+/**
+ * @brief 定时器6用于任务调度，周期为1ms
+ * 
+ */
+void timer6_init(void)
+{
+    RCC_APB1PeriphClockCmd(RCC_APB1Periph_TIM6,ENABLE);
+    TIM_InternalClockConfig(TIM6);
+    {
+        TIM_TimeBaseInitTypeDef TIM_TimeBaseInitStruct;
+
+        TIM_TimeBaseStructInit(&TIM_TimeBaseInitStruct);
+
+        TIM_TimeBaseInitStruct.TIM_ClockDivision=TIM_CKD_DIV1;
+        TIM_TimeBaseInitStruct.TIM_CounterMode=TIM_CounterMode_Up;
+        TIM_TimeBaseInitStruct.TIM_Period=1000-1;//1ms
+        TIM_TimeBaseInitStruct.TIM_Prescaler=(72-1);
+        TIM_TimeBaseInit(TIM6,&TIM_TimeBaseInitStruct);
+    }
+
+    NVIC_PriorityGroupConfig(NVIC_PriorityGroup_4);
+    {
+        NVIC_InitTypeDef NVIC_InitStruct;
+        NVIC_InitStruct.NVIC_IRQChannel = TIM6_IRQn;
+        NVIC_InitStruct.NVIC_IRQChannelPreemptionPriority = 15;
+        NVIC_InitStruct.NVIC_IRQChannelSubPriority = 0;
+        NVIC_InitStruct.NVIC_IRQChannelCmd = ENABLE;
+        NVIC_Init(&NVIC_InitStruct);
+    }
+    TIM_ITConfig(TIM6, TIM_IT_Update, ENABLE);
+
+    TIM_Cmd(TIM6,ENABLE);
+}
+
+void TIM6_IRQHandler (void)
+{
+    if (TIM_GetITStatus(TIM6, TIM_IT_Update) != RESET)
+    {
+
+        TIM_ClearITPendingBit(TIM6, TIM_IT_Update);
+    }
+}
+
 int main(void)
 {
-    /* Add your application code here */
-    RCC_APB2PeriphClockCmd(RCC_APB2Periph_GPIOC, ENABLE); // Enable clock for GPIOA
+    // POWER-EN Configure PC13
+    RCC_APB2PeriphClockCmd(RCC_APB2Periph_GPIOC, ENABLE);
+    GPIO_InitTypeDef GPIO_InitStructure;
+    GPIO_InitStructure.GPIO_Pin = GPIO_Pin_13;
+    GPIO_InitStructure.GPIO_Mode = GPIO_Mode_Out_PP;
+    GPIO_InitStructure.GPIO_Speed = GPIO_Speed_2MHz;
+    GPIO_Init(GPIOC, &GPIO_InitStructure);
+    GPIO_WriteBit(GPIOC, GPIO_Pin_13, Bit_SET); // Set PC13 high to turn on the power
+
+    IIC_InitPins_or_ChangePins(RCC_APB2Periph_GPIOB,GPIOB,GPIO_Pin_10,RCC_APB2Periph_GPIOB,GPIOB,GPIO_Pin_11);
     
-        GPIO_InitTypeDef GPIO_InitStructure;
-        
-        // // POWER-EN Configure PB4 as input
-        // GPIO_InitStructure.GPIO_Pin = GPIO_Pin_4;
-        // GPIO_InitStructure.GPIO_Mode = GPIO_Mode_Out_PP;
-        // GPIO_Init(GPIOB, &GPIO_InitStructure);
-        // GPIO_WriteBit(GPIOB, GPIO_Pin_4, Bit_RESET); // Set PB4 Low
+    OLED_Init();
+    oled_image_binbin();
 
-        // // key1 Configure PA0 as output
-        // GPIO_InitStructure.GPIO_Pin = GPIO_Pin_0;
-        // GPIO_InitStructure.GPIO_Speed = GPIO_Speed_2MHz;
-        // GPIO_InitStructure.GPIO_Mode = GPIO_Mode_Out_OD;
-        // GPIO_Init(GPIOA, &GPIO_InitStructure);
-        // GPIO_WriteBit(GPIOA, GPIO_Pin_0, Bit_SET); // Set PA0 High-Z
+    usart1_init();
+    printf("USART1 initialized successfully!\r\n");
 
-        // POWER-EN Configure PC13
-        GPIO_InitStructure.GPIO_Pin = GPIO_Pin_13;
-        GPIO_InitStructure.GPIO_Mode = GPIO_Mode_Out_PP;
-        GPIO_InitStructure.GPIO_Speed = GPIO_Speed_2MHz;
-        GPIO_Init(GPIOC, &GPIO_InitStructure);
-        GPIO_WriteBit(GPIOC, GPIO_Pin_13, Bit_SET); // Set PC13
+    timer6_init();    
+    // GPIO_WriteBit(GPIOC, GPIO_Pin_13, Bit_RESET); // Set PC13 Low
+    for(;;)
+    {
+        rx_data_proc();
+    }
+}
 
-
-        IIC_InitPins_or_ChangePins(RCC_APB2Periph_GPIOB,GPIOB,GPIO_Pin_10,RCC_APB2Periph_GPIOB,GPIOB,GPIO_Pin_11);
-        OLED_Init();
-        OLED_ShowString(1, 1, "Hello, World!");
-        Delay_s(2);
-        oled_image_binbin();
-        Delay_s(60);
-        GPIO_WriteBit(GPIOC, GPIO_Pin_13, Bit_RESET); // Set PC13 Low
-
-    
-    for(;;);
+//用函数指针替代
+void rx_data_procCallback(uint16_t cmd_num)//Starting from 0
+{
+	switch(cmd_num)
+	{
+		case 0://cmd1
+			printf("rx_buff=cmd1 -> Ctrl_1\r\n");
+			break;
+		case 1://cmd2
+			printf("rx_buff=cmd2 -> Ctrl_2\r\n");
+			break;
+		case 2://cmd3
+			printf("rx_buff=cmd3 -> Ctrl_3\r\n");
+			break;
+		case 3://help
+			printf("rx_buff=help -> I will help you!\r\n");
+			break;
+		case 4://YLAD
+			printf("\
+[===============YLAD=============]\r\n\
+[================================]\r\n\
+[*****欢迎来到无人机租赁公司*******]\r\n\
+[1.关于公司。。。                 ]\r\n\
+[2.立刻注册免费租一架试玩10min!    ]\r\n\
+[3.更多功能敬请期待！             ]\r\n\
+");
+			break;
+		default:break;
+	}
 }
