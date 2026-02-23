@@ -44,8 +44,8 @@ INCDIRS := \
 			SPL/STM32F10x_StdPeriph_Driver/inc/ \
 			SPL/CMSIS/CM3/ \
 			sys_hardware \
-# 			board_hardware \
-# 			protocol \
+			board_hardware \
+			protocol \
 # 			lib/u8g2/csrc \
 # 			lib/mpu6050 \
 # 			lib/lwgps \
@@ -60,12 +60,12 @@ CSRC =	\
     	$(wildcard SPL/STM32F10x_StdPeriph_Driver/src/*.c) \
     	$(wildcard SPL/CMSIS/CM3/*.c) \
 		sys_hardware/Delay.c \
+		board_hardware/OLED.c \
+		protocol/iic.c \
 # 		sys_hardware/USART.c \
 # 		sys_hardware/hw_iic.c \
 # 		board_hardware/key.c \
-# 		board_hardware/OLED.c \
 # 		board_hardware/u8g2_monochrome_display.c \
-# 		protocol/iic.c \
 # 		lib/u8g2/csrc/u8x8_d_ssd1306_128x64_noname.c \
 # 		lib/u8g2/csrc/u8g2_arc.c \
 # 		lib/u8g2/csrc/u8g2_bitmap.c \
@@ -348,5 +348,8 @@ help :
 #program $< verify exit->烧录后验证；program $< verify reset exit->烧录后验证并复位运行
 flash : $(PROJECT_dir).elf
 	@openocd -f interface/cmsis-dap.cfg -f target/stm32f1x.cfg -c "program $< verify reset exit"
+
+flash_stm32flash : $(PROJECT_dir).hex
+	@sudo stm32flash -w $< -v -g 0x8000000 /dev/ttyUSB0
 
 .PHONY: all version build size elf hex bin lst sym clean help flash

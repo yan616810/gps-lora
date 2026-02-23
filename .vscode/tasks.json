@@ -7,6 +7,22 @@
     "version": "2.0.0",
     "tasks": [
         {
+            "label": "Flash with stm32flash",
+            "type": "shell",
+            "command": "make",
+            "args": [
+                "flash_stm32flash"
+            ],
+            "group": {
+                "kind": "build",
+                "isDefault": false
+            },
+            "problemMatcher": [
+                "$gcc"
+            ],
+            "detail": "使用 stm32flash 通过串口刷写程序到 STM32F1芯片-Run stm32flash to flash the program to STM32F1 chip."
+        },
+        {
             "label": "Flash with OpenOCD",
             "type": "shell",
             "command": "make",

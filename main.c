@@ -9,9 +9,10 @@
  * 
  */
 
- #include "stm32f10x.h"
- #include "Delay.h"
-
+#include "stm32f10x.h"
+#include "Delay.h"
+#include "OLED.h"
+#include "iic.h"
 int main(void)
 {
     /* Add your application code here */
@@ -39,6 +40,12 @@ int main(void)
         GPIO_Init(GPIOC, &GPIO_InitStructure);
         GPIO_WriteBit(GPIOC, GPIO_Pin_13, Bit_SET); // Set PC13
 
+
+        IIC_InitPins_or_ChangePins(RCC_APB2Periph_GPIOB,GPIOB,GPIO_Pin_10,RCC_APB2Periph_GPIOB,GPIOB,GPIO_Pin_11);
+        OLED_Init();
+        OLED_ShowString(1, 1, "Hello, World!");
+        Delay_s(2);
+        oled_image_binbin();
         Delay_s(60);
         GPIO_WriteBit(GPIOC, GPIO_Pin_13, Bit_RESET); // Set PC13 Low
 
