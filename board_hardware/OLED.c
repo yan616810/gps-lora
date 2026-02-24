@@ -4,7 +4,7 @@
 #include "stdint.h"
 #include "Delay.h"
 #include "iic.h"
-// #include "hw_iic.h"
+#include "hw_iic.h"
 
 /**
   * @brief  OLED写命令
@@ -13,8 +13,8 @@
   */
 void OLED_WriteCommand(uint8_t Command)
 {
-	// hw_iic_write_byte(OLED_device_addr,OLED_Command_register_addr,Command);
-	IIC_Write_Byte(OLED_device_addr,OLED_Command_register_addr,Command);
+	hw_iic_write_byte(OLED_device_addr,OLED_Command_register_addr,Command);
+	// IIC_Write_Byte(OLED_device_addr,OLED_Command_register_addr,Command);
 }
 
 /**
@@ -24,8 +24,8 @@ void OLED_WriteCommand(uint8_t Command)
   */
 void OLED_WriteData(uint8_t Data)
 {
-	// hw_iic_write_byte(OLED_device_addr,OLED_Data_register_addr,Data);
-	IIC_Write_Byte(OLED_device_addr,OLED_Data_register_addr,Data);
+	hw_iic_write_byte(OLED_device_addr,OLED_Data_register_addr,Data);
+	// IIC_Write_Byte(OLED_device_addr,OLED_Data_register_addr,Data);
 }
 
 /**
@@ -205,6 +205,8 @@ void OLED_ShowBinNum(uint8_t Line, uint8_t Column, uint32_t Number, uint8_t Leng
   */
 void OLED_Init(void)
 {
+	hw_iic_init();//初始化硬件IIC总线
+
 	Delay_ms(100);//上电延时100ms
 
 	OLED_WriteCommand(0xAE);	//关闭显示

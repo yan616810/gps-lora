@@ -17,9 +17,10 @@
 //USART
 #include "USART.h"
 #include <stdio.h>
+//key
+#include "key.h"
 
-
-
+volatile uint8_t key_cnt=10;
 
 /**
  * @brief 定时器6用于任务调度，周期为1ms
@@ -59,14 +60,55 @@ void TIM6_IRQHandler (void)
 {
     if (TIM_GetITStatus(TIM6, TIM_IT_Update) != RESET)
     {
-
+        if(key_cnt<10)key_cnt++;
         TIM_ClearITPendingBit(TIM6, TIM_IT_Update);
+    }
+}
+/**
+ * @brief 按键任务，检测到按键事件后执行相应的操作
+ * 
+ */
+void key_task(void)
+{
+    if(key_value == 'L')
+    {
+        printf("Long press detected!\r\n");
+    }
+    else if(key_value == 'D')
+    {
+        printf("Double press detected!\r\n");
+    }
+    else if(key_value == 2)
+    {
+        printf("Key 2 pressed!\r\n");
+    }
+    else if(key_value == 3)
+    {
+        printf("Key 3 pressed!\r\n");
+    }
+    else if(key_value == 4)
+    {
+        printf("Key 4 pressed!\r\n");
+    }
+    key_value=0;
+}
+
+void task_proc(void)
+{
+    if(key_cnt==10)
+    {
+        key_cnt=0;
+		get_key();
+		if(key_value != 0)
+		{
+			key_task();
+		}
     }
 }
 
 int main(void)
 {
-    // POWER-EN Configure PC13
+/*POWER-EN Configure PC13开机*/
     RCC_APB2PeriphClockCmd(RCC_APB2Periph_GPIOC, ENABLE);
     GPIO_InitTypeDef GPIO_InitStructure;
     GPIO_InitStructure.GPIO_Pin = GPIO_Pin_13;
@@ -74,20 +116,25 @@ int main(void)
     GPIO_InitStructure.GPIO_Speed = GPIO_Speed_2MHz;
     GPIO_Init(GPIOC, &GPIO_InitStructure);
     GPIO_WriteBit(GPIOC, GPIO_Pin_13, Bit_SET); // Set PC13 high to turn on the power
-
-    IIC_InitPins_or_ChangePins(RCC_APB2Periph_GPIOB,GPIOB,GPIO_Pin_10,RCC_APB2Periph_GPIOB,GPIOB,GPIO_Pin_11);
-    
-    OLED_Init();
-    oled_image_binbin();
-
+/*按键初始化*/
+    key_init();
+/*usart1连接到CH340初始化*/
     usart1_init();
     printf("USART1 initialized successfully!\r\n");
+/*OLED显示初始化*/
+    OLED_Init();
+    oled_image_yanhui();
+/*软件IIC初始化，搜索挂载的iic设备数*/
+    IIC_InitPins_or_ChangePins(RCC_APB2Periph_GPIOB,GPIOB,GPIO_Pin_6,RCC_APB2Periph_GPIOB,GPIOB,GPIO_Pin_7);   
+    IIC_Set_speed(5);
+    IIC_Search_all_devices_printf_example();
 
-    timer6_init();    
+    timer6_init();
     // GPIO_WriteBit(GPIOC, GPIO_Pin_13, Bit_RESET); // Set PC13 Low
     for(;;)
     {
         rx_data_proc();
+        task_proc();
     }
 }
 

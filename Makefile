@@ -63,8 +63,8 @@ CSRC =	\
 		protocol/iic.c \
 		board_hardware/OLED.c \
 		sys_hardware/USART.c \
-# 		sys_hardware/hw_iic.c \
-# 		board_hardware/key.c \
+		sys_hardware/hw_iic.c \
+		board_hardware/key.c \
 # 		board_hardware/u8g2_monochrome_display.c \
 # 		lib/u8g2/csrc/u8x8_d_ssd1306_128x64_noname.c \
 # 		lib/u8g2/csrc/u8g2_arc.c \
