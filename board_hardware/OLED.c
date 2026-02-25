@@ -13,7 +13,7 @@
   */
 void OLED_WriteCommand(uint8_t Command)
 {
-	hw_iic_write_byte(OLED_device_addr,OLED_Command_register_addr,Command);
+	hw_iic_write_byte(I2C2,OLED_device_addr,OLED_Command_register_addr,Command);
 	// IIC_Write_Byte(OLED_device_addr,OLED_Command_register_addr,Command);
 }
 
@@ -24,7 +24,7 @@ void OLED_WriteCommand(uint8_t Command)
   */
 void OLED_WriteData(uint8_t Data)
 {
-	hw_iic_write_byte(OLED_device_addr,OLED_Data_register_addr,Data);
+	hw_iic_write_byte(I2C2,OLED_device_addr,OLED_Data_register_addr,Data);
 	// IIC_Write_Byte(OLED_device_addr,OLED_Data_register_addr,Data);
 }
 
@@ -205,7 +205,11 @@ void OLED_ShowBinNum(uint8_t Line, uint8_t Column, uint32_t Number, uint8_t Leng
   */
 void OLED_Init(void)
 {
-	hw_iic_init();//初始化硬件IIC总线
+/*硬件iic初始化*/
+	hw_iic_init(I2C2);//初始化硬件IIC总线
+/*软件iic初始化*/
+	// IIC_Set_speed(1);
+	// IIC_InitPins_or_ChangePins(RCC_APB2Periph_GPIOB,GPIOB,GPIO_Pin_10,RCC_APB2Periph_GPIOB,GPIOB,GPIO_Pin_11);
 
 	Delay_ms(100);//上电延时100ms
 

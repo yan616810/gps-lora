@@ -29,5 +29,6 @@
         "math.h": "c"
     },
     "cortex-debug.variableUseNaturalFormat": false,
-    "cmake.ignoreCMakeListsMissing": true
+    "cmake.ignoreCMakeListsMissing": true,
+    "C_Cpp.errorSquiggles": "enabled"
 }
