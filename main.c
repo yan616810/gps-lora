@@ -30,7 +30,7 @@
 #include "lwgps.h"
 
 volatile uint8_t key_cnt=10;
-volatile uint16_t second_cnt=500;
+volatile uint16_t second_cnt=1000;
 /*u8g2*/
 u8g2_t u8g2;
 char u8g2_buf[20];
@@ -77,7 +77,7 @@ void TIM6_IRQHandler (void)
     if (TIM_GetITStatus(TIM6, TIM_IT_Update) != RESET)
     {
         if(key_cnt<10)key_cnt++;
-        if(second_cnt<500)second_cnt++;
+        if(second_cnt<1000)second_cnt++;
         TIM_ClearITPendingBit(TIM6, TIM_IT_Update);
     }
 }
@@ -215,13 +215,12 @@ void task_proc(void)
 			key_task();
 		}
     }
-    if(second_cnt==500)
+    if(second_cnt==1000)
     {
-        second_cnt=0;
-        GPS_Parser_lwrb(&lwgps_handle);
+		second_cnt=0;
+		GPS_Parser_lwrb(&lwgps_handle);
         if (lwgps_handle.is_valid) 
 		{
-            // printf("[--YLAD--]\r\n");
 			if(earth_flag)//以文本形式显示实时坐标
 			{
 

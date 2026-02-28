@@ -7,7 +7,7 @@
  * @brief 双缓冲中一个缓冲区的大小宏定义
  * 
  */
-#define DMA_BUF_SIZE (uint32_t)128         // 适当增大双缓冲区空间大小，每个缓冲区最好大于单帧报文的长度
+#define DMA_BUF_SIZE (uint32_t)1024         // 适当增大双缓冲区空间大小，每个缓冲区最好大于单帧报文的长度
 /**
  * @brief USART接收GPS数据波特率宏定义
  * 
