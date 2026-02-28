@@ -130,30 +130,27 @@ void DMA2_Channel3_IRQHandler_uart4_rxFULL_callback(void)
         /*1.失能DMA即可改变CMAR和CNDTR*/
         DMA2_Channel3->CCR &= ~DMA_CCR3_EN;
         /*2.切换缓冲区*/
+        uint8_t *full_buff;  // 指向刚刚接收满的缓冲区
         if(dma2_buf_index)  //dma2_buf2刚刚接收满了，准备切换到dma2_buf1继续接收
         {
             DMA2_Channel3->CMAR = (uint32_t)dma2_buf1;  // 切换到dma2_buf1缓冲区
             dma2_buf_index      = 0;                    // 指示将会使用dma2_buf1缓冲区进行下一轮接收；0: buf1, 1: buf2
+            full_buff = dma2_buf2;
         }
         else  //dma2_buf1刚刚接收满了，准备切换到dma2_buf2继续接收
         {
             DMA2_Channel3->CMAR = (uint32_t)dma2_buf2;  // 切换到dma2_buf2缓冲区
             dma2_buf_index      = 1;                    // 指示将会使用dma2_buf2缓冲区进行下一轮接收；0: buf1, 1: buf2
+            full_buff = dma2_buf1;
         }
         /*3.重新设置传输数据量*/
         DMA2_Channel3->CNDTR  = DMA_BUF_SIZE;  // 注意：在STM32F10x系列中，CNDTR寄存器的值在DMA传输过程中会自动递减，表示剩余的数据量。因此，在每次DMA传输完成后，需要重新设置CNDTR寄存器的值，以准备下一次传输。
         /*4.重新使能DMA通道*/
         DMA2_Channel3->CCR   |= DMA_CCR3_EN;
         /*5.将双缓冲区中的数据写入环形缓冲区*/
-        if(dma2_buf_index)  //dma2_buf1刚刚接收满了，准备将dma2_buf1中的数据写入环形缓冲区
-        {
-            lwrb_write(&buff_1, dma2_buf1, DMA_BUF_SIZE);  // 将dma2_buf1中的数据写入环形缓冲区
-        }
-        else
-        {
-            lwrb_write(&buff_1, dma2_buf2, DMA_BUF_SIZE);  // 将dma2_buf2中的数据写入环形缓冲区
-        }
-        DMA_ClearITPendingBit(DMA2_IT_TC3);  // 清除DMA2通道3传输完成中断标志
+        lwrb_write(&buff_1, full_buff, DMA_BUF_SIZE);
+        /*6.清除DMA2通道3的传输完成中断标志*/
+        DMA_ClearITPendingBit(DMA2_IT_TC3);
     }
 }
 
@@ -161,42 +158,38 @@ void UART4_IRQHandler_IDLE_callback(void)
 {
     if(USART_GetITStatus(UART4, USART_IT_IDLE) == SET)  // 判断UART4空闲中断
     {
-                /*6.清除UART4空闲中断标志；注意：在 RXNE 位自身被设置(即串口重新接收到数据)并再次处于空闲之前，IDLE 位不会再次被设置。*/
-        volatile uint32_t tmp;  // 必须 volatile
-        tmp      = UART4->SR;   // 先读SR
-        tmp      = UART4->DR;   // 再读 DR → 清除 IDLE
-        (void)  tmp;            // // 消除警告
-
         uint16_t received_bytes = DMA_BUF_SIZE - DMA2_Channel3->CNDTR;  // 计算本次接收的数据量
         if(received_bytes > 0)  // 如果received_bytes > 0，即可判断出当前不是DMA缓冲区满&&正好也是空闲！！！
         {
             /*1.失能DMA即可改变CMAR和CNDTR*/
             DMA2_Channel3->CCR &= ~DMA_CCR3_EN;
             /*2.切换缓冲区*/
-            if(dma2_buf_index)  //dma2_buf2刚刚接收满了，准备切换到dma2_buf1继续接收
+            uint8_t *cur_buff;   // 指向当前正在接收数据的缓冲区
+            if(dma2_buf_index)  //dma2_buf2刚刚接收数据遇到串口空闲了，准备切换到dma2_buf1继续接收
             {
                 DMA2_Channel3->CMAR = (uint32_t)dma2_buf1;  // 切换到dma2_buf1缓冲区
                 dma2_buf_index      = 0;                    // 指示将会使用dma2_buf1缓冲区进行下一轮接收；0: buf1, 1: buf2
+                cur_buff = dma2_buf2;
             }
-            else  //dma2_buf1刚刚接收满了，准备切换到dma2_buf2继续接收
+            else  //dma2_buf1刚刚接收数据遇到串口空闲了，准备切换到dma2_buf2继续接收
             {
                 DMA2_Channel3->CMAR = (uint32_t)dma2_buf2;  // 切换到dma2_buf2缓冲区
                 dma2_buf_index      = 1;                    // 指示将会使用dma2_buf2缓冲区进行下一轮接收；0: buf1, 1: buf2
+                cur_buff = dma2_buf1;
             }
             /*3.重新设置传输数据量*/
             DMA2_Channel3->CNDTR  = DMA_BUF_SIZE;  // 注意：在STM32F10x系列中，CNDTR寄存器的值在DMA传输过程中会自动递减，表示剩余的数据量。因此，在每次DMA传输完成后，需要重新设置CNDTR寄存器的值，以准备下一次传输。
             /*4.重新使能DMA通道*/
             DMA2_Channel3->CCR   |= DMA_CCR3_EN;
             /*5.将双缓冲区中的数据写入环形缓冲区*/
-            if(dma2_buf_index)  //dma2_buf1刚刚接收满了，准备将dma2_buf1中的数据写入环形缓冲区
-            {
-                lwrb_write(&buff_1, dma2_buf1, received_bytes);  // 将dma2_buf1中的数据写入环形缓冲区
-            }
-            else
-            {
-                lwrb_write(&buff_1, dma2_buf2, received_bytes);  // 将dma2_buf2中的数据写入环形缓冲区
-            }
+            lwrb_write(&buff_1, cur_buff, received_bytes);
         }
+        /*6.清除UART4空闲中断标志；注意：在 RXNE 位自身被设置(即串口重新接收到数据)并再次处于空闲之前，IDLE 位不会再次被设置。*/
+        volatile uint32_t tmp;  // 必须 volatile
+        tmp      = UART4->SR;   // 先读SR
+        tmp      = UART4->DR;   // 再读 DR → 清除 IDLE
+        (void)  tmp;            // // 消除警告
+
     }
 }
 #endif
