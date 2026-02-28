@@ -21,17 +21,22 @@
 #include "key.h"
 //LCD
 #include "LCD.h"
-/*单色屏幕u8g2图形库*/
+//单色屏幕u8g2图形库
 #include "u8g2.h"
 #include "u8g2_monochrome_display.h"
 #include <string.h> //memset
-
+//GPS
+#include "DMA_USART.h"
+#include "lwgps.h"
 
 volatile uint8_t key_cnt=10;
+volatile uint16_t second_cnt=500;
 /*u8g2*/
 u8g2_t u8g2;
 char u8g2_buf[20];
-
+/*GPS*/
+lwgps_t lwgps_handle;
+uint8_t earth_flag=0;//是否以全球缩略图的形式显示实时坐标 1:文本形式 0:全球缩略图形式
 
 /**
  * @brief 定时器6用于任务调度，周期为1ms
@@ -72,6 +77,7 @@ void TIM6_IRQHandler (void)
     if (TIM_GetITStatus(TIM6, TIM_IT_Update) != RESET)
     {
         if(key_cnt<10)key_cnt++;
+        if(second_cnt<500)second_cnt++;
         TIM_ClearITPendingBit(TIM6, TIM_IT_Update);
     }
 }
@@ -84,34 +90,84 @@ void key_task(void)
     if(key_value == 'L')
     {
         printf("Long press detected!\r\n");
-        oled_image_meinv(117);
+        earth_flag = (earth_flag == 0) ? 1 : 0; // 切换GPS显示模式
+        if (lwgps_handle.is_valid) 
+		{
+            // printf("[--YLAD--]\r\n");
+			if(earth_flag)//以文本形式显示实时坐标
+			{
 
-        // LCD_Clear(BLUE);
-        // Delay_s(1);
-        // LCD_Clear(BRED);
-        // Delay_s(1);
-        // LCD_Clear(GRED);
-        // Delay_s(1);
-        // LCD_Clear(GBLUE);
-        // Delay_s(1);
-        // LCD_Clear(RED);
-        // Delay_s(1);
-        // LCD_Clear(MAGENTA);
-        // Delay_s(1);
-        // LCD_Clear(GREEN);
-        // Delay_s(1);
-        // LCD_Clear(CYAN);
-        // Delay_s(1);
-        // LCD_Clear(YELLOW);
-        // Delay_s(1);
-        // LCD_Clear(BROWN);
-        // Delay_s(1);
-        // LCD_Clear(BRRED);
-        // Delay_s(1);
-        // LCD_Clear(GRAY);
-        // Delay_s(1);
-        // LCD_Clear(GRAY25);
-        // Delay_s(1);
+				// 可选：解析结果输出
+    			// if (lwgps_handle.is_valid) {
+    			    // printf("Lat: %.6f, Lon: %.6f, Alt: %.4f\r\n",
+    			    //     latitude, longitude, altitude);
+    			// }
+				u8g2_ClearBuffer(&u8g2);
+				memset(u8g2_buf, 0, sizeof(u8g2_buf));
+				// sprintf(u8g2_buf,"[>Lon:%03.7f<]",lwgps_handle.latitude);
+				int32_t var_int = (int32_t)(lwgps_handle.latitude * 1000000);//小数点后6位可以精确到​约0.11 米
+				int32_t var_decimal_temp = var_int%1000000;//取出小数点后6位
+				uint32_t var_decimal = var_decimal_temp<0 ? -var_decimal_temp : var_decimal_temp;
+				sprintf(u8g2_buf,"[Lat:%+d.%06lu]",(int16_t)(var_int/1000000),var_decimal);
+				u8g2_SetDrawColor(&u8g2,0);
+				u8g2_DrawBox(&u8g2,0*7,0*10,18*7,10);
+				u8g2_SetDrawColor(&u8g2,1);
+				u8g2_DrawStr(&u8g2,0*7,0*10,u8g2_buf);
+
+				memset(u8g2_buf, 0, sizeof(u8g2_buf));
+				// sprintf(u8g2_buf,"[>Lon:%03.7f<]",lwgps_handle.longitude);
+				var_int = (int32_t)(lwgps_handle.longitude * 1000000);//小数点后6位可以让低纬度地区精确到​约0.11 米，高纬度地区更精确
+				var_decimal_temp = var_int%1000000;//取出小数点后6位
+				var_decimal = var_decimal_temp<0 ? -var_decimal_temp : var_decimal_temp;
+				sprintf(u8g2_buf,"[Lon:%+d.%06lu]",(int16_t)(var_int/1000000),var_decimal);
+				u8g2_SetDrawColor(&u8g2,0);
+				u8g2_DrawBox(&u8g2,0*7,1*10,18*7,10);
+				u8g2_SetDrawColor(&u8g2,1);
+				u8g2_DrawStr(&u8g2,0*7,1*10,u8g2_buf);
+
+				memset(u8g2_buf, 0, sizeof(u8g2_buf));
+				// sprintf(u8g2_buf,"[>Alt:%03.5f<]", lwgps_handle.altitude);
+				var_int = (int32_t)(lwgps_handle.altitude * 100);//小数点后2位可以精确到厘米
+				var_decimal_temp = var_int%100;//取出小数点后2位
+				var_decimal = var_decimal_temp<0 ? -var_decimal_temp : var_decimal_temp;
+				sprintf(u8g2_buf,"[Alt:%+d.%02lu]",(int16_t)(var_int/100),var_decimal);
+				u8g2_SetDrawColor(&u8g2,0);
+				u8g2_DrawBox(&u8g2,0*7,2*10,18*7,10);
+				u8g2_SetDrawColor(&u8g2,1);
+				u8g2_DrawStr(&u8g2,0*7,2*10,u8g2_buf);
+
+				memset(u8g2_buf, 0, sizeof(u8g2_buf));
+				var_int = (int32_t)(lwgps_handle.variation * 100);//小数点后2位
+				var_decimal_temp = var_int%100;//取出小数点后2位
+				var_decimal = var_decimal_temp<0 ? -var_decimal_temp : var_decimal_temp;
+				sprintf(u8g2_buf,"[Mag:%+d.%02lu]",(int16_t)var_int/100,var_decimal);
+				u8g2_SetDrawColor(&u8g2,0);
+				u8g2_DrawBox(&u8g2,0*7,3*10,18*7,10);
+				u8g2_SetDrawColor(&u8g2,1);
+				u8g2_DrawStr(&u8g2,0*7,3*10,u8g2_buf);
+
+				u8g2_SendBuffer(&u8g2);
+			}
+			else{//全球缩略图
+				u8g2_ClearBuffer(&u8g2);
+				u8g2_oled_draw_earth(&u8g2);//在全幅缓冲区内绘制全球缩略图
+				u8g2_oled_draw_earth_pixel_VHxvLine(&u8g2,lwgps_handle.latitude,lwgps_handle.longitude);//在全球缩略图上绘制实时经纬度坐标点
+				u8g2_SendBuffer(&u8g2);
+			}
+				
+		}
+		else
+		{
+			// u8g2_ClearBuffer(&u8g2);
+			memset(u8g2_buf, 0, sizeof(u8g2_buf));
+			sprintf(u8g2_buf,"[>GPS No Data<]");
+			u8g2_SetDrawColor(&u8g2,1);
+			u8g2_DrawBox(&u8g2,3*7,27,13*7,15);
+			u8g2_SetDrawColor(&u8g2,0);
+			u8g2_DrawStr(&u8g2,3*7,3*10,u8g2_buf);
+			u8g2_SendBuffer(&u8g2);
+		}
+
     }
     else if(key_value == 'D')
     {
@@ -123,7 +179,7 @@ void key_task(void)
         printf("Key 2 pressed!\r\n");
         oled_image_leige(85);
 
-        LCD_ShowSnow(0,0,LCD_WIDTH-1,LCD_HEIGHT-1);
+        // LCD_ShowSnow(0,0,LCD_WIDTH-1,LCD_HEIGHT-1);
     }
     else if(key_value == 3)
     {
@@ -134,16 +190,16 @@ void key_task(void)
         // u8g2_oled_draw_earth(&u8g2);
         // u8g2_SendBuffer(&u8g2);
 
-        LCD_DrawLine(0,0,200,200,0x0000);//画一条黑色斜线
-        LCD_DrawRect(50,50,150,150,0xf800);//画一个红色矩形
+        // LCD_DrawLine(0,0,200,200,0x0000);//画一条黑色斜线
+        // LCD_DrawRect(50,50,150,150,0xf800);//画一个红色矩形
     }
     else if(key_value == 4)
     {
         printf("Key 4 pressed!\r\n");
         oled_image_jinxin(85);
 
-        LCD_FillRect(0,50,85,150,0xc88c);
-        LCD_FillRect(50,100,120,200,0x57f6);
+        // LCD_FillRect(0,50,85,150,0xc88c);
+        // LCD_FillRect(50,100,120,200,0x57f6);
     }
     key_value=0;
 }
@@ -159,23 +215,106 @@ void task_proc(void)
 			key_task();
 		}
     }
+    if(second_cnt==500)
+    {
+        second_cnt=0;
+        GPS_Parser_lwrb(&lwgps_handle);
+        if (lwgps_handle.is_valid) 
+		{
+            // printf("[--YLAD--]\r\n");
+			if(earth_flag)//以文本形式显示实时坐标
+			{
+
+				// 可选：解析结果输出
+    			// if (lwgps_handle.is_valid) {
+    			    // printf("Lat: %.6f, Lon: %.6f, Alt: %.4f\r\n",
+    			    //     latitude, longitude, altitude);
+    			// }
+				u8g2_ClearBuffer(&u8g2);
+				memset(u8g2_buf, 0, sizeof(u8g2_buf));
+				// sprintf(u8g2_buf,"[>Lon:%03.7f<]",lwgps_handle.latitude);
+				int32_t var_int = (int32_t)(lwgps_handle.latitude * 1000000);//小数点后6位可以精确到​约0.11 米
+				int32_t var_decimal_temp = var_int%1000000;//取出小数点后6位
+				uint32_t var_decimal = var_decimal_temp<0 ? -var_decimal_temp : var_decimal_temp;
+				sprintf(u8g2_buf,"[Lat:%+d.%06lu]",(int16_t)lwgps_handle.latitude,var_decimal);
+				u8g2_SetDrawColor(&u8g2,0);
+				u8g2_DrawBox(&u8g2,0*7,0*10,18*7,10);
+				u8g2_SetDrawColor(&u8g2,1);
+				u8g2_DrawStr(&u8g2,0*7,0*10,u8g2_buf);
+
+				memset(u8g2_buf, 0, sizeof(u8g2_buf));
+				// sprintf(u8g2_buf,"[>Lon:%03.7f<]",lwgps_handle.longitude);
+				var_int = (int32_t)(lwgps_handle.longitude * 1000000);//小数点后6位可以让低纬度地区精确到​约0.11 米，高纬度地区更精确
+				var_decimal_temp = var_int%1000000;//取出小数点后6位
+				var_decimal = var_decimal_temp<0 ? -var_decimal_temp : var_decimal_temp;
+				sprintf(u8g2_buf,"[Lon:%+d.%06lu]",(int16_t)lwgps_handle.longitude,var_decimal);
+				u8g2_SetDrawColor(&u8g2,0);
+				u8g2_DrawBox(&u8g2,0*7,1*10,18*7,10);
+				u8g2_SetDrawColor(&u8g2,1);
+				u8g2_DrawStr(&u8g2,0*7,1*10,u8g2_buf);
+
+				memset(u8g2_buf, 0, sizeof(u8g2_buf));
+				// sprintf(u8g2_buf,"[>Alt:%03.5f<]", lwgps_handle.altitude);
+				var_int = (int32_t)(lwgps_handle.altitude * 100);//小数点后2位可以精确到厘米
+				var_decimal_temp = var_int%100;//取出小数点后2位
+				var_decimal = var_decimal_temp<0 ? -var_decimal_temp : var_decimal_temp;
+				sprintf(u8g2_buf,"[Alt:%+d.%02lu]",(int16_t)lwgps_handle.altitude,var_decimal);
+				u8g2_SetDrawColor(&u8g2,0);
+				u8g2_DrawBox(&u8g2,0*7,2*10,18*7,10);
+				u8g2_SetDrawColor(&u8g2,1);
+				u8g2_DrawStr(&u8g2,0*7,2*10,u8g2_buf);
+
+				memset(u8g2_buf, 0, sizeof(u8g2_buf));
+				var_int = (int32_t)(lwgps_handle.variation * 100);//小数点后2位
+				var_decimal_temp = var_int%100;//取出小数点后2位
+				var_decimal = var_decimal_temp<0 ? -var_decimal_temp : var_decimal_temp;
+				sprintf(u8g2_buf,"[Mag:%+d.%02lu]",(int16_t)var_int/100,var_decimal);
+				u8g2_SetDrawColor(&u8g2,0);
+				u8g2_DrawBox(&u8g2,0*7,3*10,18*7,10);
+				u8g2_SetDrawColor(&u8g2,1);
+				u8g2_DrawStr(&u8g2,0*7,3*10,u8g2_buf);
+
+				u8g2_SendBuffer(&u8g2);
+			}
+			else{//全球缩略图
+				u8g2_ClearBuffer(&u8g2);
+				u8g2_oled_draw_earth(&u8g2);//在全幅缓冲区内绘制全球缩略图
+				u8g2_oled_draw_earth_pixel_VHxvLine(&u8g2,lwgps_handle.latitude,lwgps_handle.longitude);//在全球缩略图上绘制实时经纬度坐标点
+				u8g2_SendBuffer(&u8g2);
+			}
+				
+		}
+		else
+		{
+			// u8g2_ClearBuffer(&u8g2);
+			memset(u8g2_buf, 0, sizeof(u8g2_buf));
+			sprintf(u8g2_buf,"[>GPS No Data<]");
+			u8g2_SetDrawColor(&u8g2,1);
+			u8g2_DrawBox(&u8g2,3*7,27,13*7,15);
+			u8g2_SetDrawColor(&u8g2,0);
+			u8g2_DrawStr(&u8g2,3*7,3*10,u8g2_buf);
+			u8g2_SendBuffer(&u8g2);
+		}
+
+    }
 }
 
 int main(void)
 {
 /*POWER-EN Configure PC13开机*/
     RCC_APB2PeriphClockCmd(RCC_APB2Periph_GPIOC, ENABLE);
-    GPIO_InitTypeDef GPIO_InitStructure;
-    GPIO_InitStructure.GPIO_Pin = GPIO_Pin_13;
-    GPIO_InitStructure.GPIO_Mode = GPIO_Mode_Out_PP;
-    GPIO_InitStructure.GPIO_Speed = GPIO_Speed_2MHz;
+    GPIO_InitTypeDef GPIO_InitStructure={
+        .GPIO_Pin = GPIO_Pin_13,
+        .GPIO_Mode = GPIO_Mode_Out_PP,
+        .GPIO_Speed = GPIO_Speed_2MHz
+    };
     GPIO_Init(GPIOC, &GPIO_InitStructure);
     GPIO_WriteBit(GPIOC, GPIO_Pin_13, Bit_SET); // Set PC13 high to turn on the power
-/*按键初始化*/
-    key_init();
 /*usart1连接到CH340初始化*/
     usart1_init();
     printf("USART1 initialized successfully!\r\n");
+/*按键初始化*/
+    key_init();
 /*软件IIC初始化，搜索挂载的iic设备数*/
     IIC_InitPins_or_ChangePins(RCC_APB2Periph_GPIOB,GPIOB,GPIO_Pin_6,RCC_APB2Periph_GPIOB,GPIOB,GPIO_Pin_7);   
     IIC_Set_speed(5);
@@ -185,31 +324,26 @@ int main(void)
     // OLED_Init();
     // oled_image_yanhui();
 /*LCD显示初始化*/
-    LCD_Init_All();
-    LCD_Clear(BLACK);
+    // LCD_Init_All();
+    // LCD_Clear(BLACK);
+/*LWGPS*/
+	lwgps_init(&lwgps_handle);  		 //GPS报文解析器句柄初始化
+	GPS_Init_all_module();               //初始化一个GPS所依赖的软硬件环境
+	/*执行到这里是DMA已经可以自动从uart4接收数据并自动拷贝到LWRB的环形缓冲区中*/
+	printf("DMA usart1 to lwrb init success!\r\n");
 /*u8g2单色屏初始化*/
 	u8g2_oled_init(&u8g2);
 	u8g2_oled_play_Animation(&u8g2);
     
-	u8g2_SetFont(&u8g2,u8g2_font_courB08_tr);//w=7  h=10
+	u8g2_SetFont(&u8g2,u8g2_font_courB08_tr);  //w=7  h=10
 	u8g2_SetFontPosTop(&u8g2);
-	u8g2_SetFontMode(&u8g2,0);//显示字体的背景，不透明
+	u8g2_SetFontMode(&u8g2,0);  //显示字体的背景，不透明
 	u8g2_SetDrawColor(&u8g2,1);
 	u8g2_ClearDisplay(&u8g2);
     
-    u8g2_oled_draw_earth(&u8g2);
+    // u8g2_oled_draw_earth(&u8g2);
 
-	// u8g2_DrawStr(&u8g2,0,0*10,"X=");
-	// u8g2_DrawStr(&u8g2,0,1*10,"Y=");
-	// u8g2_DrawStr(&u8g2,0,2*10,"Z=");
-	// u8g2_DrawStr(&u8g2,0,3*10,"Gyro");
-	// u8g2_DrawStr(&u8g2,9*7,0*10,"X=");
-	// u8g2_DrawStr(&u8g2,9*7,1*10,"Y=");
-	// u8g2_DrawStr(&u8g2,9*7,2*10,"Z=");
-	// u8g2_DrawStr(&u8g2,9*7,3*10,"Acce");
-	// u8g2_DrawStr(&u8g2,0,5*10,"Tem->");
-
-	u8g2_SendBuffer(&u8g2);
+	// u8g2_SendBuffer(&u8g2);
 /*定时器6初始化，周期1ms，用于任务调度*/    
     timer6_init();
     for(;;)
