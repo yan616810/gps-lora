@@ -30,12 +30,12 @@
 #include "lwgps.h"
 
 volatile uint8_t key_cnt=10;
-volatile uint16_t second_cnt=1000;
+volatile uint16_t second_cnt=500;
 /*u8g2*/
 u8g2_t u8g2;
 char u8g2_buf[20];
 /*GPS*/
-lwgps_t lwgps_handle;
+GPS_t gps;          // 全局 GPS 实例
 uint8_t earth_flag=0;//是否以全球缩略图的形式显示实时坐标 1:文本形式 0:全球缩略图形式
 
 /**
@@ -77,7 +77,7 @@ void TIM6_IRQHandler (void)
     if (TIM_GetITStatus(TIM6, TIM_IT_Update) != RESET)
     {
         if(key_cnt<10)key_cnt++;
-        if(second_cnt<1000)second_cnt++;
+        if(second_cnt<500)second_cnt++;
         TIM_ClearITPendingBit(TIM6, TIM_IT_Update);
     }
 }
@@ -91,7 +91,7 @@ void key_task(void)
     {
         printf("Long press detected!\r\n");
         earth_flag = (earth_flag == 0) ? 1 : 0; // 切换GPS显示模式
-        if (lwgps_handle.is_valid) 
+        if (gps.lwgps_handle.is_valid) 
 		{
             // printf("[--YLAD--]\r\n");
 			if(earth_flag)//以文本形式显示实时坐标
@@ -105,7 +105,7 @@ void key_task(void)
 				u8g2_ClearBuffer(&u8g2);
 				memset(u8g2_buf, 0, sizeof(u8g2_buf));
 				// sprintf(u8g2_buf,"[>Lon:%03.7f<]",lwgps_handle.latitude);
-				int32_t var_int = (int32_t)(lwgps_handle.latitude * 1000000);//小数点后6位可以精确到​约0.11 米
+				int32_t var_int = (int32_t)(gps.lwgps_handle.latitude * 1000000);//小数点后6位可以精确到​约0.11 米
 				int32_t var_decimal_temp = var_int%1000000;//取出小数点后6位
 				uint32_t var_decimal = var_decimal_temp<0 ? -var_decimal_temp : var_decimal_temp;
 				sprintf(u8g2_buf,"[Lat:%+d.%06lu]",(int16_t)(var_int/1000000),var_decimal);
@@ -116,7 +116,7 @@ void key_task(void)
 
 				memset(u8g2_buf, 0, sizeof(u8g2_buf));
 				// sprintf(u8g2_buf,"[>Lon:%03.7f<]",lwgps_handle.longitude);
-				var_int = (int32_t)(lwgps_handle.longitude * 1000000);//小数点后6位可以让低纬度地区精确到​约0.11 米，高纬度地区更精确
+				var_int = (int32_t)(gps.lwgps_handle.longitude * 1000000);//小数点后6位可以让低纬度地区精确到​约0.11 米，高纬度地区更精确
 				var_decimal_temp = var_int%1000000;//取出小数点后6位
 				var_decimal = var_decimal_temp<0 ? -var_decimal_temp : var_decimal_temp;
 				sprintf(u8g2_buf,"[Lon:%+d.%06lu]",(int16_t)(var_int/1000000),var_decimal);
@@ -127,7 +127,7 @@ void key_task(void)
 
 				memset(u8g2_buf, 0, sizeof(u8g2_buf));
 				// sprintf(u8g2_buf,"[>Alt:%03.5f<]", lwgps_handle.altitude);
-				var_int = (int32_t)(lwgps_handle.altitude * 100);//小数点后2位可以精确到厘米
+				var_int = (int32_t)(gps.lwgps_handle.altitude * 100);//小数点后2位可以精确到厘米
 				var_decimal_temp = var_int%100;//取出小数点后2位
 				var_decimal = var_decimal_temp<0 ? -var_decimal_temp : var_decimal_temp;
 				sprintf(u8g2_buf,"[Alt:%+d.%02lu]",(int16_t)(var_int/100),var_decimal);
@@ -137,7 +137,7 @@ void key_task(void)
 				u8g2_DrawStr(&u8g2,0*7,2*10,u8g2_buf);
 
 				memset(u8g2_buf, 0, sizeof(u8g2_buf));
-				var_int = (int32_t)(lwgps_handle.variation * 100);//小数点后2位
+				var_int = (int32_t)(gps.lwgps_handle.variation * 100);//小数点后2位
 				var_decimal_temp = var_int%100;//取出小数点后2位
 				var_decimal = var_decimal_temp<0 ? -var_decimal_temp : var_decimal_temp;
 				sprintf(u8g2_buf,"[Mag:%+d.%02lu]",(int16_t)var_int/100,var_decimal);
@@ -151,7 +151,7 @@ void key_task(void)
 			else{//全球缩略图
 				u8g2_ClearBuffer(&u8g2);
 				u8g2_oled_draw_earth(&u8g2);//在全幅缓冲区内绘制全球缩略图
-				u8g2_oled_draw_earth_pixel_VHxvLine(&u8g2,lwgps_handle.latitude,lwgps_handle.longitude);//在全球缩略图上绘制实时经纬度坐标点
+				u8g2_oled_draw_earth_pixel_VHxvLine(&u8g2,gps.lwgps_handle.latitude,gps.lwgps_handle.longitude);//在全球缩略图上绘制实时经纬度坐标点
 				u8g2_SendBuffer(&u8g2);
 			}
 				
@@ -215,11 +215,11 @@ void task_proc(void)
 			key_task();
 		}
     }
-    if(second_cnt==1000)
+    if(second_cnt==500)
     {
 		second_cnt=0;
-		GPS_Parser_lwrb(&lwgps_handle);
-        if (lwgps_handle.is_valid) 
+		GPS_lwgps_parser_lwrb(&gps);
+        if (gps.lwgps_handle.is_valid) 
 		{
 			if(earth_flag)//以文本形式显示实时坐标
 			{
@@ -232,10 +232,10 @@ void task_proc(void)
 				u8g2_ClearBuffer(&u8g2);
 				memset(u8g2_buf, 0, sizeof(u8g2_buf));
 				// sprintf(u8g2_buf,"[>Lon:%03.7f<]",lwgps_handle.latitude);
-				int32_t var_int = (int32_t)(lwgps_handle.latitude * 1000000);//小数点后6位可以精确到​约0.11 米
+				int32_t var_int = (int32_t)(gps.lwgps_handle.latitude * 1000000);//小数点后6位可以精确到​约0.11 米
 				int32_t var_decimal_temp = var_int%1000000;//取出小数点后6位
 				uint32_t var_decimal = var_decimal_temp<0 ? -var_decimal_temp : var_decimal_temp;
-				sprintf(u8g2_buf,"[Lat:%+d.%06lu]",(int16_t)lwgps_handle.latitude,var_decimal);
+				sprintf(u8g2_buf,"[Lat:%+d.%06lu]",(int16_t)gps.lwgps_handle.latitude,var_decimal);
 				u8g2_SetDrawColor(&u8g2,0);
 				u8g2_DrawBox(&u8g2,0*7,0*10,18*7,10);
 				u8g2_SetDrawColor(&u8g2,1);
@@ -243,10 +243,10 @@ void task_proc(void)
 
 				memset(u8g2_buf, 0, sizeof(u8g2_buf));
 				// sprintf(u8g2_buf,"[>Lon:%03.7f<]",lwgps_handle.longitude);
-				var_int = (int32_t)(lwgps_handle.longitude * 1000000);//小数点后6位可以让低纬度地区精确到​约0.11 米，高纬度地区更精确
+				var_int = (int32_t)(gps.lwgps_handle.longitude * 1000000);//小数点后6位可以让低纬度地区精确到​约0.11 米，高纬度地区更精确
 				var_decimal_temp = var_int%1000000;//取出小数点后6位
 				var_decimal = var_decimal_temp<0 ? -var_decimal_temp : var_decimal_temp;
-				sprintf(u8g2_buf,"[Lon:%+d.%06lu]",(int16_t)lwgps_handle.longitude,var_decimal);
+				sprintf(u8g2_buf,"[Lon:%+d.%06lu]",(int16_t)gps.lwgps_handle.longitude,var_decimal);
 				u8g2_SetDrawColor(&u8g2,0);
 				u8g2_DrawBox(&u8g2,0*7,1*10,18*7,10);
 				u8g2_SetDrawColor(&u8g2,1);
@@ -254,17 +254,17 @@ void task_proc(void)
 
 				memset(u8g2_buf, 0, sizeof(u8g2_buf));
 				// sprintf(u8g2_buf,"[>Alt:%03.5f<]", lwgps_handle.altitude);
-				var_int = (int32_t)(lwgps_handle.altitude * 100);//小数点后2位可以精确到厘米
+				var_int = (int32_t)(gps.lwgps_handle.altitude * 100);//小数点后2位可以精确到厘米
 				var_decimal_temp = var_int%100;//取出小数点后2位
 				var_decimal = var_decimal_temp<0 ? -var_decimal_temp : var_decimal_temp;
-				sprintf(u8g2_buf,"[Alt:%+d.%02lu]",(int16_t)lwgps_handle.altitude,var_decimal);
+				sprintf(u8g2_buf,"[Alt:%+d.%02lu]",(int16_t)gps.lwgps_handle.altitude,var_decimal);
 				u8g2_SetDrawColor(&u8g2,0);
 				u8g2_DrawBox(&u8g2,0*7,2*10,18*7,10);
 				u8g2_SetDrawColor(&u8g2,1);
 				u8g2_DrawStr(&u8g2,0*7,2*10,u8g2_buf);
 
 				memset(u8g2_buf, 0, sizeof(u8g2_buf));
-				var_int = (int32_t)(lwgps_handle.variation * 100);//小数点后2位
+				var_int = (int32_t)(gps.lwgps_handle.variation * 100);//小数点后2位
 				var_decimal_temp = var_int%100;//取出小数点后2位
 				var_decimal = var_decimal_temp<0 ? -var_decimal_temp : var_decimal_temp;
 				sprintf(u8g2_buf,"[Mag:%+d.%02lu]",(int16_t)var_int/100,var_decimal);
@@ -278,7 +278,7 @@ void task_proc(void)
 			else{//全球缩略图
 				u8g2_ClearBuffer(&u8g2);
 				u8g2_oled_draw_earth(&u8g2);//在全幅缓冲区内绘制全球缩略图
-				u8g2_oled_draw_earth_pixel_VHxvLine(&u8g2,lwgps_handle.latitude,lwgps_handle.longitude);//在全球缩略图上绘制实时经纬度坐标点
+				u8g2_oled_draw_earth_pixel_VHxvLine(&u8g2,gps.lwgps_handle.latitude,gps.lwgps_handle.longitude);//在全球缩略图上绘制实时经纬度坐标点
 				u8g2_SendBuffer(&u8g2);
 			}
 				
@@ -326,10 +326,9 @@ int main(void)
     // LCD_Init_All();
     // LCD_Clear(BLACK);
 /*LWGPS*/
-	lwgps_init(&lwgps_handle);  		 //GPS报文解析器句柄初始化
-	GPS_Init_all_module();               //初始化一个GPS所依赖的软硬件环境
+	GPS_init(&gps);               //初始化一个GPS所依赖的软硬件环境
 	/*执行到这里是DMA已经可以自动从uart4接收数据并自动拷贝到LWRB的环形缓冲区中*/
-	printf("DMA usart1 to lwrb init success!\r\n");
+	printf("GPS init success!\r\n");
 /*u8g2单色屏初始化*/
 	u8g2_oled_init(&u8g2);
 	u8g2_oled_play_Animation(&u8g2);

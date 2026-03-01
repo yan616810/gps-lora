@@ -1,28 +1,21 @@
 #ifndef __DMA_H
 #define __DMA_H
+#include "stm32f10x.h"
+#include "GPS.h"
 
-#include "lwgps.h"
+/*使用DMA2+UART4接收*/
+#define __DMA2_UART4_RX_DMA__
+/*USART接收GPS数据波特率宏定义*/
+#define USART1_BaudRate_bps (uint32_t)9600  // USART1波特率设置
+#define UART4_BaudRate_bps (uint32_t)115200  // UART4波特率设置，130.208ms/帧
 
-/**
- * @brief 双缓冲中一个缓冲区的大小宏定义
- * 
- */
-#define DMA_BUF_SIZE (uint32_t)1024         // 适当增大双缓冲区空间大小，每个缓冲区最好大于单帧报文的长度
-/**
- * @brief USART接收GPS数据波特率宏定义
- * 
- */
-#define USART1_BaudRate_bps (uint32_t)9600  // USART波特率设置
-#define UART4_BaudRate_bps (uint32_t)115200  // UART4波特率设置
-
-void GPS_Init_all_module(void);               //初始化一个环形缓冲区 + 配置usart1的DMA接收 + 配置DMA1的通道5 + 双缓冲机制
-void GPS_Parser_lwrb(lwgps_t* lwgps_handle);  //GPS解析任务
-
-/*usart1*/
-void USART1_IRQHandler_IDLE_callback(void);                  //USART1空闲中断处理函数（DMA方式，处理未满缓冲区数据）
-void DMA1_Channel5_IRQHandler_usart1_rxFULL_callback(void);  //DMA1通道5接收满中断处理函数，处理USART1接收数据到双缓冲区
-/*uart4*/
-void UART4_IRQHandler_IDLE_callback(void);
-void DMA2_Channel3_IRQHandler_uart4_rxFULL_callback(void);
+/*DMA1 + USART1*/
+void DMA1_usart1_to_db_HW_Init(GPS_db_t *db);                      //硬件初始化函数，配置USART1+DMA1的双缓冲接收
+void DMA1_Channel5_IRQHandler_usart1_rxFULL_callback(GPS_t *gps);  //DMA1通道5接收满中断处理函数
+void USART1_IRQHandler_IDLE_callback(GPS_t *gps);                  //USART1空闲中断处理函数
+/*DMA2 + UART4*/
+void DMA2_uart4_to_db_HW_Init(GPS_db_t *db);                      //硬件初始化函数，配置UART4+DMA2的双缓冲接收
+void DMA2_Channel3_IRQHandler_uart4_rxFULL_callback(GPS_t *gps);  //DMA2通道3接收满中断处理函数
+void UART4_IRQHandler_IDLE_callback(GPS_t *gps);                  //UART4空闲中断处理函数
 
 #endif // !__DMA_H

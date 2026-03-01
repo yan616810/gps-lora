@@ -22,8 +22,8 @@
 
 /* Includes ------------------------------------------------------------------*/
 #include "stm32f10x_it.h"
+#include "main.h"
 
-#include "DMA_USART.h" //GPS模块使用的DMA+USART相关中断处理函数
 /** @addtogroup STM32F10x_StdPeriph_Template
   * @{
   */
@@ -151,13 +151,20 @@
 /*void PPP_IRQHandler(void)
 {
 }*/
+
 void UART4_IRQHandler (void)
 {
-  UART4_IRQHandler_IDLE_callback();
+  /* forward to registered callback if available */
+  if (gps.uart_idle_irq) {
+    gps.uart_idle_irq(&gps);
+  }
 }
+
 void DMA2_CH3_IRQHandler (void)
 {
-  DMA2_Channel3_IRQHandler_uart4_rxFULL_callback();
+  if (gps.dma_full_irq) {
+    gps.dma_full_irq(&gps);
+  }
 }
 /**
   * @}

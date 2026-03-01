@@ -12,46 +12,37 @@
  *  1. 增加GPS模块初始化函数等；
  *  2. 增加GPS数据解析函数等；
  *  3. 目前只支持挂载一个GPS芯片，后续考虑面向对象......
- * @version 0.2
+ * 2026/3/1：
+ *  1.重构DMA_USART.c和DMA_USART.h，添加GPS.c和GPS.h使用GPS_t结构体实例来管理双缓冲区和环形缓冲区，支持多模块或单元测试场景；
+ *  2.重构DMA_USART.c中的中断处理函数，使用传入的GPS_t实例来访问双缓冲区和环形缓冲区，避免使用全局静态变量，增强代码的模块化和可测试性；
+ *  3.重构DMA_USART.h中的函数声明，明确传入GPS_t实例或GPS_db_t符合最小接口原则；
+ *  
+ * @version 0.3
  * @date 2025-06-03
  * 
- * @copyright Copyright (c) 2025
+ * @copyright Copyright (c) 2026
  * 
  */
 #include "DMA_USART.h"
-#include "stm32f10x.h"
-#include "lwrb.h"
-#include "lwgps.h"
-#include "USART.h"
-#define __DMA2_UART4_RX_DMA__
 
-/*定义双缓冲区double buffer*/
-#ifdef __DMA1_USART1_RX_DMA__
-static uint8_t  dma1_buf1[DMA_BUF_SIZE], dma1_buf2[DMA_BUF_SIZE];  //usart1双缓冲，大小考量看笔记项目定位器
-static uint8_t dma1_buf_index = 0;                                 // 指示当前正在使用的缓冲区 0: buf1, 1: buf2
-#endif
-static uint8_t  dma2_buf1[DMA_BUF_SIZE], dma2_buf2[DMA_BUF_SIZE];  //uart4双缓冲，大小考量看笔记项目定位器
-static uint8_t dma2_buf_index = 0;                                 // 指示当前正在使用的缓冲区 0: buf1, 1: buf2
-
-/*环形缓冲区LWRB*/
-static lwrb_t buff_1;                       //定义一个环形缓冲区实例
-static uint8_t buffdata_1[DMA_BUF_SIZE*4];  //大于等于DMA缓冲区4倍，因一帧数据都1K多，动态调整为4K
-
-/**
- * @brief 初始化一个环形缓冲区
- * 
+/*
+ * UART4/DMA2 双缓冲和环形缓冲区的数据不再存在于本文件的静态变量中，
+ * 而是通过传入的 GPS_t 结构体进行访问。这样每个 GPS 实例都拥有独立的
+ * 缓冲区，可以支持多个模块或单元测试。
  */
-static void init_lwrb(void)
-{
-    lwrb_init(&buff_1, buffdata_1,sizeof(buffdata_1));   //初始化gps模块使用到的环形缓冲区
-}
 
+
+/* 之前的 init_lwrb 和 buff_2/buffdata_2 不再需要，初始化由 GPS_init 负责 */
 #ifdef __DMA2_UART4_RX_DMA__
 /**
- * @brief 初始化UART4的DMA接受功能，配置DMA双缓冲机制，并开启相关中断
+ * @brief 初始化UART4的DMA硬件接受功能，配置DMA双缓冲机制，并开启相关中断
  * 
+ * @param db 双缓冲区结构体指针，包含两个缓冲区和一个索引，DMA配置将根据索引自动选择当前缓冲区
+ * @note  传入GPS_db_t而不是GPS_t原因：
+ *          1.初始化 DMA/USART 的过程只需要知道双缓冲区的位置，明确表达“只需要这部分数据”；
+ *          2.符合“最小接口原则”，只传递硬件所需的数据
  */
-static void DMA_UART4_to_arrybuffer_init(void)
+void DMA2_uart4_to_db_HW_Init(GPS_db_t *db)
 {
     /*1.开启DMA2时钟*/
     RCC_AHBPeriphClockCmd(RCC_AHBPeriph_DMA2, ENABLE);
@@ -100,7 +91,7 @@ static void DMA_UART4_to_arrybuffer_init(void)
         .DMA_Mode               = DMA_Mode_Normal,               //工作模式：非循环模式
         .DMA_Priority           = DMA_Priority_VeryHigh,         // DMA优先级：非常高
         .DMA_DIR                = DMA_DIR_PeripheralSRC,         //数据传输方向：外设到内存
-        .DMA_MemoryBaseAddr     = (uint32_t)dma2_buf1,            //注意传入的应该是缓冲区的地址
+        .DMA_MemoryBaseAddr     = db->double_buffering_index == 0 ? (uint32_t)db->double_buffering1 : (uint32_t)db->double_buffering2,  //注意传入的应该是缓冲区的地址
         .DMA_MemoryDataSize     = DMA_MemoryDataSize_Byte,       //内存数据大小：字节
         .DMA_MemoryInc          = DMA_MemoryInc_Enable,          //内存地址递增
         .DMA_PeripheralBaseAddr = (uint32_t)&UART4->DR,         //注意传入的应该是DR寄存器的地址
@@ -122,7 +113,13 @@ static void DMA_UART4_to_arrybuffer_init(void)
     USART_Cmd(UART4, ENABLE);
 }
 
-void DMA2_Channel3_IRQHandler_uart4_rxFULL_callback(void)
+
+/*
+ * 硬件中断回调，移植到GPS_t结构体后由ISR通过gps指针调用
+ * 函数体与以前GPS.c中的版本类似，不过引用gps实例中的缓冲区和环形缓冲区。
+ */
+
+void DMA2_Channel3_IRQHandler_uart4_rxFULL_callback(GPS_t *gps)
 {
     /*每一个通道都有一组配置寄存器，此处串口4接收功能使用DMA2的通道3*/
     if(DMA_GetITStatus(DMA2_IT_TC3) == SET)  // 判断DMA2通道3传输完成中断
@@ -131,30 +128,30 @@ void DMA2_Channel3_IRQHandler_uart4_rxFULL_callback(void)
         DMA2_Channel3->CCR &= ~DMA_CCR3_EN;
         /*2.切换缓冲区*/
         uint8_t *full_buff;  // 指向刚刚接收满的缓冲区
-        if(dma2_buf_index)  //dma2_buf2刚刚接收满了，准备切换到dma2_buf1继续接收
+        if(gps->db.double_buffering_index)  //dma2_buf2刚刚接收满了，准备切换到dma2_buf1继续接收
         {
-            DMA2_Channel3->CMAR = (uint32_t)dma2_buf1;  // 切换到dma2_buf1缓冲区
-            dma2_buf_index      = 0;                    // 指示将会使用dma2_buf1缓冲区进行下一轮接收；0: buf1, 1: buf2
-            full_buff = dma2_buf2;
+            DMA2_Channel3->CMAR = (uint32_t)gps->db.double_buffering1;  // 切换到dma2_buf1缓冲区
+            gps->db.double_buffering_index = 0;                    // 指示将会使用dma2_buf1缓冲区进行下一轮接收；0: buf1, 1: buf2
+            full_buff = gps->db.double_buffering2;
         }
         else  //dma2_buf1刚刚接收满了，准备切换到dma2_buf2继续接收
         {
-            DMA2_Channel3->CMAR = (uint32_t)dma2_buf2;  // 切换到dma2_buf2缓冲区
-            dma2_buf_index      = 1;                    // 指示将会使用dma2_buf2缓冲区进行下一轮接收；0: buf1, 1: buf2
-            full_buff = dma2_buf1;
+            DMA2_Channel3->CMAR = (uint32_t)gps->db.double_buffering2;  // 切换到dma2_buf2缓冲区
+            gps->db.double_buffering_index = 1;                    // 指示将会使用dma2_buf2缓冲区进行下一轮接收；0: buf1, 1: buf2
+            full_buff = gps->db.double_buffering1;
         }
         /*3.重新设置传输数据量*/
         DMA2_Channel3->CNDTR  = DMA_BUF_SIZE;  // 注意：在STM32F10x系列中，CNDTR寄存器的值在DMA传输过程中会自动递减，表示剩余的数据量。因此，在每次DMA传输完成后，需要重新设置CNDTR寄存器的值，以准备下一次传输。
         /*4.重新使能DMA通道*/
         DMA2_Channel3->CCR   |= DMA_CCR3_EN;
         /*5.将双缓冲区中的数据写入环形缓冲区*/
-        lwrb_write(&buff_1, full_buff, DMA_BUF_SIZE);
+        lwrb_write(&gps->rb.ring_buffer, full_buff, DMA_BUF_SIZE);
         /*6.清除DMA2通道3的传输完成中断标志*/
         DMA_ClearITPendingBit(DMA2_IT_TC3);
     }
 }
 
-void UART4_IRQHandler_IDLE_callback(void)
+void UART4_IRQHandler_IDLE_callback(GPS_t *gps)
 {
     if(USART_GetITStatus(UART4, USART_IT_IDLE) == SET)  // 判断UART4空闲中断
     {
@@ -165,24 +162,24 @@ void UART4_IRQHandler_IDLE_callback(void)
             DMA2_Channel3->CCR &= ~DMA_CCR3_EN;
             /*2.切换缓冲区*/
             uint8_t *cur_buff;   // 指向当前正在接收数据的缓冲区
-            if(dma2_buf_index)  //dma2_buf2刚刚接收数据遇到串口空闲了，准备切换到dma2_buf1继续接收
+            if(gps->db.double_buffering_index)  //dma2_buf2刚刚接收数据遇到串口空闲了，准备切换到dma2_buf1继续接收
             {
-                DMA2_Channel3->CMAR = (uint32_t)dma2_buf1;  // 切换到dma2_buf1缓冲区
-                dma2_buf_index      = 0;                    // 指示将会使用dma2_buf1缓冲区进行下一轮接收；0: buf1, 1: buf2
-                cur_buff = dma2_buf2;
+                DMA2_Channel3->CMAR = (uint32_t)gps->db.double_buffering1;  // 切换到dma2_buf1缓冲区
+                gps->db.double_buffering_index = 0;                    // 指示将会使用dma2_buf1缓冲区进行下一轮接收；0: buf1, 1: buf2
+                cur_buff = gps->db.double_buffering2;
             }
             else  //dma2_buf1刚刚接收数据遇到串口空闲了，准备切换到dma2_buf2继续接收
             {
-                DMA2_Channel3->CMAR = (uint32_t)dma2_buf2;  // 切换到dma2_buf2缓冲区
-                dma2_buf_index      = 1;                    // 指示将会使用dma2_buf2缓冲区进行下一轮接收；0: buf1, 1: buf2
-                cur_buff = dma2_buf1;
+                DMA2_Channel3->CMAR = (uint32_t)gps->db.double_buffering2;  // 切换到dma2_buf2缓冲区
+                gps->db.double_buffering_index = 1;                    // 指示将会使用dma2_buf2缓冲区进行下一轮接收；0: buf1, 1: buf2
+                cur_buff = gps->db.double_buffering1;
             }
             /*3.重新设置传输数据量*/
             DMA2_Channel3->CNDTR  = DMA_BUF_SIZE;  // 注意：在STM32F10x系列中，CNDTR寄存器的值在DMA传输过程中会自动递减，表示剩余的数据量。因此，在每次DMA传输完成后，需要重新设置CNDTR寄存器的值，以准备下一次传输。
             /*4.重新使能DMA通道*/
             DMA2_Channel3->CCR   |= DMA_CCR3_EN;
             /*5.将双缓冲区中的数据写入环形缓冲区*/
-            lwrb_write(&buff_1, cur_buff, received_bytes);
+            lwrb_write(&gps->rb.ring_buffer, cur_buff, received_bytes);
         }
         /*6.清除UART4空闲中断标志；注意：在 RXNE 位自身被设置(即串口重新接收到数据)并再次处于空闲之前，IDLE 位不会再次被设置。*/
         volatile uint32_t tmp;  // 必须 volatile
@@ -199,7 +196,7 @@ void UART4_IRQHandler_IDLE_callback(void)
  * @brief 配置usart1 + 使用DMA1的通道5，通过双缓冲机制
  * 
  */
-static void DMA_usart1_to_arrybuffer_init(void)
+void DMA1_usart1_to_db_HW_Init(GPS_db_t *db)
 {
     /*1.开启DMA1时钟*/
     RCC_AHBPeriphClockCmd(RCC_AHBPeriph_DMA1, ENABLE);
@@ -249,7 +246,7 @@ static void DMA_usart1_to_arrybuffer_init(void)
         .DMA_Mode               = DMA_Mode_Normal,               //工作模式：非循环模式
         .DMA_Priority           = DMA_Priority_VeryHigh,         // DMA优先级：非常高
         .DMA_DIR                = DMA_DIR_PeripheralSRC,         //数据传输方向：外设到内存
-        .DMA_MemoryBaseAddr     = (uint32_t)dma1_buf1,            //注意传入的应该是缓冲区的地址
+        .DMA_MemoryBaseAddr     = db->double_buffering_index == 0 ? (uint32_t)db->double_buffering1 : (uint32_t)db->double_buffering2,  //注意传入的应该是缓冲区的地址
         .DMA_MemoryDataSize     = DMA_MemoryDataSize_Byte,       //内存数据大小：字节
         .DMA_MemoryInc          = DMA_MemoryInc_Enable,          //内存地址递增
         .DMA_PeripheralBaseAddr = (uint32_t)&USART1->DR,         //注意传入的应该是DR寄存器的地址
@@ -278,7 +275,7 @@ static void DMA_usart1_to_arrybuffer_init(void)
  *        2.改变缓冲区; 
  *        3.将双缓冲数据拷贝到环形缓冲区;
  */
-void DMA1_Channel5_IRQHandler_usart1_rxFULL_callback(void)
+void DMA1_Channel5_IRQHandler_usart1_rxFULL_callback(GPS_t *gps)
 {
     /*每一个通道都有一组配置寄存器，此处串口1接收功能使用DMA1的通道5*/
     if(DMA_GetITStatus(DMA1_IT_TC5) == SET)
@@ -286,27 +283,27 @@ void DMA1_Channel5_IRQHandler_usart1_rxFULL_callback(void)
         DMA1_Channel5->CCR &= ~DMA_CCR5_EN;                     //关闭DMA才可向寄存器写配置
 
         uint8_t *full_buf;
-        if(dma1_buf_index)//buf2 满中断
+        if(gps->db.double_buffering_index)//buf2 满中断
         {
             //切换缓冲区到buf1
-            DMA1_Channel5->CMAR = (uint32_t)dma1_buf1;
-            dma1_buf_index = 0;
+            DMA1_Channel5->CMAR = (uint32_t)gps->db.double_buffering1;
+            gps->db.double_buffering_index = 0;
             //此时dma1_buf2中存有新数据
-            full_buf = dma1_buf2;
+            full_buf = gps->db.double_buffering2;
         }
         else//buf1 满中断
         {
             //切换缓冲区到buf2
-            DMA1_Channel5->CMAR = (uint32_t)dma1_buf2;
-            dma1_buf_index = 1;
+            DMA1_Channel5->CMAR = (uint32_t)gps->db.double_buffering2;
+            gps->db.double_buffering_index = 1;
             //此时dma1_buf1中存有新数据
-            full_buf = dma1_buf1;
+            full_buf = gps->db.double_buffering1;
         }
         DMA1_Channel5->CNDTR = (uint16_t)DMA_BUF_SIZE;          // 重新设置传输数据量
         DMA1_Channel5->CCR |= DMA_CCR5_EN;                     //开启DMA传输
 
         //将full_buf指向的填满数据的dma_bufx拷贝到LWRB环形缓冲区
-        lwrb_write(&buff_1,full_buf,DMA_BUF_SIZE);
+        lwrb_write(&gps->rb.ring_buffer,full_buf,DMA_BUF_SIZE);
         
         DMA_ClearITPendingBit(DMA1_IT_TC5);
     }
@@ -317,71 +314,43 @@ void DMA1_Channel5_IRQHandler_usart1_rxFULL_callback(void)
  * 1.USART1空闲中断回调函数，处理未满缓冲区数据，保证GPS全帧报文都能被转移到LWRB环形缓冲区中
  * @note 空闲中断发生时，DMA缓冲区可能未满，应将已接收数据从缓冲区头部写入环形缓冲区，并及时重启DMA。
  */
-void USART1_IRQHandler_IDLE_callback(void)
+void USART1_IRQHandler_IDLE_callback(GPS_t *gps)
 {
     if (USART_GetITStatus(USART1, USART_IT_IDLE) != RESET)
     {
+        uint16_t received_bytes = DMA_BUF_SIZE - DMA1_Channel5->CNDTR;  // 计算实际接收到的数据量
+        if(received_bytes > 0)
+        {
+            DMA1_Channel5->CCR &= ~DMA_CCR5_EN;  // 关闭DMA
+
+            uint8_t  *cur_buf ;                                       // 当前缓冲区指针
+            uint8_t  *next_buf;                                       // 下一个缓冲区指针
+
+            if(gps->db.double_buffering_index)
+            {
+                cur_buf       = dma1_buf2;  // 当前buf2未满
+                next_buf      = dma1_buf1;  // buf1为下一个缓冲区
+                dma1_buf_index = 0;         // 切换到buf1
+            }
+            else
+            {
+                cur_buf       = dma1_buf1;  // 当前buf1未满
+                next_buf      = dma1_buf2;  // buf2为下一个缓冲区
+                dma1_buf_index = 1;         // 切换到buf2
+            }
+
+            DMA1_Channel5->CMAR   = (uint32_t)next_buf;      // 立即切换到下一个缓冲区
+            DMA1_Channel5->CNDTR  = (uint32_t)DMA_BUF_SIZE;  // 重新设置传输数据量
+            DMA1_Channel5->CCR   |= DMA_CCR5_EN;             // 重新使能DMA
+
+            // 将实际接收到的数据从当前缓冲区写入LWRB环形缓冲区
+            lwrb_write(&buff_1, cur_buf, received_bytes);
+
+        }
         volatile uint32_t tmp;
         tmp = USART1->SR;  // 先读SR
         tmp = USART1->DR;  // 再读DR，清除空闲中断标志（必须，防止中断重复进入）
         (void)tmp;
-
-        DMA1_Channel5->CCR &= ~DMA_CCR5_EN;  // 关闭DMA
-
-        uint16_t received = DMA_BUF_SIZE - DMA1_Channel5->CNDTR;  // 计算实际接收到的数据量
-        uint8_t  *cur_buf ;                                       // 当前缓冲区指针
-        uint8_t  *next_buf;                                       // 下一个缓冲区指针
-
-        if(dma1_buf_index == 0)
-        {
-            cur_buf       = dma1_buf1;  // buf1未满
-            next_buf      = dma1_buf2;  // buf2为下一个缓冲区
-            dma1_buf_index = 1;         // 切换到buf2
-        }
-        else
-        {
-            cur_buf       = dma1_buf2;  // buf2未满
-            next_buf      = dma1_buf1;  // buf1为下一个缓冲区
-            dma1_buf_index = 0;         // 切换到buf1
-        }
-        
-        DMA1_Channel5->CMAR   = (uint32_t)next_buf;      // 立即切换到下一个缓冲区
-        DMA1_Channel5->CNDTR  = (uint32_t)DMA_BUF_SIZE;  // 重新设置传输数据量
-        DMA1_Channel5->CCR   |= DMA_CCR5_EN;             // 重新使能DMA
-
-        // 将实际接收到的数据从当前缓冲区写入LWRB环形缓冲区
-        if (received > 0 && received <= DMA_BUF_SIZE)
-        {
-            // 从缓冲区头部起始写入实际接收到的数据
-            lwrb_write(&buff_1, cur_buf, received);
-        }
     }
 }
 #endif
-
-void GPS_Init_all_module(void)
-{
-    // 初始化GPS所依赖的的软件：初始化stm32内的一个大小合适的环形缓冲区
-    init_lwrb();
-    // 初始化GPS模块所依赖硬件：USART+DMA配置并启动工作
-    DMA_UART4_to_arrybuffer_init();
-}
-
-/**
- * @brief GPS解析任务，解析器流式解析环形缓冲区的数据
- * 
- * @param lwgps_handle lwgps库中的lwgps_t指针型变量;
- * 作用：将从环形缓冲区解析得到的GPS模块所有的信息，存储到此指针指向的外部lwgps_t类型的变量！
- */
-void GPS_Parser_lwrb(lwgps_t* lwgps_handle)
-{
-	uint8_t temp_buf[DMA_BUF_SIZE];//建议temp_buf大小与DMA缓冲区一致
-    size_t len; 
-    /*尝试从环形缓冲区读取数据*/
-    while ((len = lwrb_read(&buff_1, temp_buf, sizeof(temp_buf))) > 0) {
-        /*送入LWGPS解析*/
-        lwgps_process(lwgps_handle, temp_buf, len);//lwgps_process()本身是流式解析，处理速度很快。
-        usart1_send_Hex((uint8_t *)temp_buf, len);
-    }
-}
-
