@@ -26,8 +26,7 @@
 #include "u8g2_monochrome_display.h"
 #include <string.h> //memset
 //GPS
-#include "DMA_USART.h"
-#include "lwgps.h"
+#include "GPS.h"
 
 volatile uint8_t key_cnt=10;
 volatile uint16_t second_cnt=500;
@@ -96,7 +95,10 @@ void key_task(void)
             // printf("[--YLAD--]\r\n");
 			if(earth_flag)//以文本形式显示实时坐标
 			{
-
+				u8g2_SetFont(&u8g2,u8g2_font_courB08_tr);  //w=7  h=10
+				u8g2_SetFontPosTop(&u8g2);
+				u8g2_SetFontMode(&u8g2,0);  //显示字体的背景，不透明
+				u8g2_SetDrawColor(&u8g2,1);
 				// 可选：解析结果输出
     			// if (lwgps_handle.is_valid) {
     			    // printf("Lat: %.6f, Lon: %.6f, Alt: %.4f\r\n",
@@ -223,6 +225,10 @@ void task_proc(void)
 		{
 			if(earth_flag)//以文本形式显示实时坐标
 			{
+				u8g2_SetFont(&u8g2,u8g2_font_courB08_tr);  //w=7  h=10
+				u8g2_SetFontPosTop(&u8g2);
+				u8g2_SetFontMode(&u8g2,0);  //显示字体的背景，不透明
+				u8g2_SetDrawColor(&u8g2,1);
 
 				// 可选：解析结果输出
     			// if (lwgps_handle.is_valid) {

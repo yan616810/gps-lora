@@ -5,6 +5,14 @@
 #include "hw_iic.h"
 #include "u8g2_monochrome_display_earth_image.h"
 
+// 当检测到 I2C 错误或在重新初始化 I2C 后，调用此函数把显示器恢复到已知状态
+void u8g2_oled_init_sequence(u8x8_t *u8x8)
+{
+  u8g2_InitDisplay(u8x8); // 发送初始化序列，显示器进入已知状态
+  u8g2_SetPowerSave(u8x8, 0); // 取消休眠
+  // u8g2_ClearBuffer(u8x8);
+}
+
 //软件iic，u8x8_gpio_and_delay_for_sw_iic()函数中用于初始化软件iic引脚
 void oled_pin_init(void)//SCL=PB8     SDA=PB9
 {
@@ -154,8 +162,10 @@ uint8_t u8x8_byte_hw_i2c(u8x8_t *u8x8, uint8_t msg, uint8_t arg_int, void *arg_p
         data = (uint8_t *)arg_ptr;
         while (arg_int--) {
             I2C_SendData(I2C2, *data++);
-            if (hw_iic_CheckEvent_timeout(I2C2, I2C_EVENT_MASTER_BYTE_TRANSMITTED))
-                return 0;
+        if (hw_iic_CheckEvent_timeout(I2C2, I2C_EVENT_MASTER_BYTE_TRANSMITTED)) {
+          u8g2_oled_init_sequence(u8x8);
+          return 0;
+        }
         }
       // data = (uint8_t *)arg_ptr;
       // while( arg_int > 0 )
@@ -176,14 +186,20 @@ uint8_t u8x8_byte_hw_i2c(u8x8_t *u8x8, uint8_t msg, uint8_t arg_int, void *arg_p
         break;
 
     case U8X8_MSG_BYTE_START_TRANSFER:
-        if (hw_iic_wait_not_busy(I2C2))
-            return 0;
+      if (hw_iic_wait_not_busy(I2C2)) {
+        u8g2_oled_init_sequence(u8x8);
+        return 0;
+      }
         I2C_GenerateSTART(I2C2, ENABLE);
-        if (hw_iic_CheckEvent_timeout(I2C2, I2C_EVENT_MASTER_MODE_SELECT))
-            return 0;
+      if (hw_iic_CheckEvent_timeout(I2C2, I2C_EVENT_MASTER_MODE_SELECT)) {
+        u8g2_oled_init_sequence(u8x8);
+        return 0;
+      }
         I2C_Send7bitAddress(I2C2, u8x8_GetI2CAddress(u8x8), I2C_Direction_Transmitter);
-        if (hw_iic_CheckEvent_timeout(I2C2, I2C_EVENT_MASTER_TRANSMITTER_MODE_SELECTED))
-            return 0;
+      if (hw_iic_CheckEvent_timeout(I2C2, I2C_EVENT_MASTER_TRANSMITTER_MODE_SELECTED)) {
+        u8g2_oled_init_sequence(u8x8);
+        return 0;
+      }
       // i2c_start(u8x8);
       // i2c_write_byte(u8x8, u8x8_GetI2CAddress(u8x8));
       // //i2c_write_byte(u8x8, 0x078);
