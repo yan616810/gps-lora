@@ -37,7 +37,7 @@ void GPS_lwgps_parser_lwrb(GPS_t *gps)
     while ((len = lwrb_read(&gps->rb.ring_buffer, parser_temp_buf, sizeof(parser_temp_buf))) > 0) {
         /*送入LWGPS解析*/
         lwgps_process(&gps->lwgps_handle, parser_temp_buf, len);//lwgps_process()本身是流式解析，处理速度很快。
-        usart1_send_Hex((uint8_t *)parser_temp_buf, len);
+        // usart1_send_Hex((uint8_t *)parser_temp_buf, len);
     }
 }
 

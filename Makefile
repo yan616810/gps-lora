@@ -110,6 +110,7 @@ CSRC =	\
 		lib/lwrb/src/lwrb/lwrb_ex.c \
 		lib/lwgps/lwgps.c \
 		board_hardware/GPS.c \
+		board_hardware/bmp280.c \
 # 		lib/mpu6050/mpu6050.c \
 # 		lib/mpu6050/inv_mpu_dmp_motion_driver.c \
 # 		lib/mpu6050/inv_mpu.c \

@@ -17,6 +17,7 @@
 //USART
 #include "USART.h"
 #include <stdio.h>
+#include <math.h>
 //key
 #include "key.h"
 //LCD
@@ -27,15 +28,22 @@
 #include <string.h> //memset
 //GPS
 #include "GPS.h"
+//bmp280
+#include "bmp280.h"
+
 
 volatile uint8_t key_cnt=10;
 volatile uint16_t second_cnt=500;
+volatile uint8_t bmp280_cnt=100;//bmp280读取计数器，达到一定值后读取一次bmp280数据
 /*u8g2*/
 u8g2_t u8g2;
 char u8g2_buf[20];
 /*GPS*/
-GPS_t gps;          // 全局 GPS 实例
+GPS_t gps={0};          // 全局 GPS 实例
 uint8_t earth_flag=0;//是否以全球缩略图的形式显示实时坐标 1:文本形式 0:全球缩略图形式
+/*bmp280*/
+BMP280_t bmp280={0};          // 全局 BMP280 实例
+
 
 /**
  * @brief 定时器6用于任务调度，周期为1ms
@@ -77,6 +85,7 @@ void TIM6_IRQHandler (void)
     {
         if(key_cnt<10)key_cnt++;
         if(second_cnt<500)second_cnt++;
+		if(bmp280_cnt<100)bmp280_cnt++;
         TIM_ClearITPendingBit(TIM6, TIM_IT_Update);
     }
 }
@@ -302,6 +311,33 @@ void task_proc(void)
 		}
 
     }
+	if(bmp280_cnt==100)
+	{
+		bmp280_cnt=0;
+		if(BMP280_Get_PressureTemperature_ADC(&bmp280) == 0)
+		{
+			BMP280_Get_Temperature_ture_int32(&bmp280);
+			BMP280_Get_Pressure_ture_int32(&bmp280);
+
+			int32_t temp_fixed = bmp280.Temperature_ture;
+			int32_t int_part = temp_fixed / 100;
+			int32_t frac_part = temp_fixed - (int_part * 100);   // 避免 % 的实现差异
+			if (frac_part < 0) frac_part = -frac_part;
+			
+			int32_t altitude = 100*calculate_altitude(bmp280.Pressure_ture);
+			int32_t altitude_int_part = altitude / 100;
+			int32_t altitude_frac_part = altitude - (altitude_int_part * 100);   // 避免 % 的实现差异
+			if (altitude_frac_part < 0) altitude_frac_part = -altitude_frac_part;
+			printf("BMP280 Read Success! Temperature: %+ld.%02ld C, Pressure: %lu Pa, Altitude: %+ld.%02ld cm\r\n",
+			       int_part,
+			       frac_part,
+			       bmp280.Pressure_ture,
+			       altitude_int_part,
+			       altitude_frac_part
+			);
+		}
+		else printf("BMP280 Read error!\r\n");
+	}
 }
 
 int main(void)
@@ -335,6 +371,16 @@ int main(void)
 	GPS_init(&gps);               //初始化一个GPS所依赖的软硬件环境
 	/*执行到这里是DMA已经可以自动从uart4接收数据并自动拷贝到LWRB的环形缓冲区中*/
 	printf("GPS init success!\r\n");
+/*bmp280*/
+	if(BMP280_Init(&bmp280,BMP280_HANDHELD_DEVICE_LOW_POWER,0x77,IIC_Read_Len,IIC_Write_Len,NULL))
+	{
+		printf("BMP280 init failed!\r\n");
+		while(1);
+	}
+	else
+	{
+		printf("BMP280 init success!\r\n");
+	}
 /*u8g2单色屏初始化*/
 	u8g2_oled_init(&u8g2);
 	u8g2_oled_play_Animation(&u8g2);
