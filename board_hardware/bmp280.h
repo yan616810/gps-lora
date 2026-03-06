@@ -205,5 +205,5 @@ s32 BMP280_Get_Temperature_ture_int32(BMP280_t *bmp280);   //返回温度值，�
 u32 BMP280_Get_Pressure_ture_int32(BMP280_t *bmp280);      //返回气压值，单位是Pa，输出值96386表示96386Pa=963.86hPa
 
 
-float calculate_altitude(uint32_t pressure_pa);
+float calculate_altitude(uint32_t pressure_pa, float sea_level_pressure_pa);
 #endif 

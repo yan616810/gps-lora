@@ -627,9 +627,10 @@ u8 BMP280_Init(BMP280_t *bmp280, BMP280_Application_to_e application_to, u8 iic_
  * @param pressure_pa 当前气压，单位Pa
  * @return float 海拔高度，单位米
  */
-float calculate_altitude(uint32_t pressure_pa) {
-    const float P0 = 101325.0f; // 海平面标准大气压，Pa
-    const float exponent = 1.0f / 5.25588f;
-    float ratio = (float)pressure_pa / P0;
-    return 44330.77f * (1.0f - powf(ratio, exponent));
+float calculate_altitude(uint32_t pressure_pa, float sea_level_pressure_pa)
+{
+    // const float P0 = 101325.0f; // 海平面标准大气压，Pa
+    // const float exponent = 1.0f / 5.25588f;//0.190263
+    float ratio = (float)pressure_pa / sea_level_pressure_pa;
+    return 44330.77f * (1.0f - powf(ratio, 0.190263));
 }

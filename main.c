@@ -324,11 +324,11 @@ void task_proc(void)
 			int32_t frac_part = temp_fixed - (int_part * 100);   // 避免 % 的实现差异
 			if (frac_part < 0) frac_part = -frac_part;
 			
-			int32_t altitude = 100*calculate_altitude(bmp280.Pressure_ture);
+			int32_t altitude = 100*calculate_altitude(bmp280.Pressure_ture, 103019.0f);//单位是厘米，输出值5123表示51.23米
 			int32_t altitude_int_part = altitude / 100;
 			int32_t altitude_frac_part = altitude - (altitude_int_part * 100);   // 避免 % 的实现差异
 			if (altitude_frac_part < 0) altitude_frac_part = -altitude_frac_part;
-			printf("BMP280 Read Success! Temperature: %+ld.%02ld C, Pressure: %lu Pa, Altitude: %+ld.%02ld cm\r\n",
+			printf("BMP280 Read Success! Temperature: %+ld.%02ld C, Pressure: %lu Pa, Altitude: %+ld.%02ld m\r\n",
 			       int_part,
 			       frac_part,
 			       bmp280.Pressure_ture,
