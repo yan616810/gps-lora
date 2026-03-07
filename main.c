@@ -30,7 +30,8 @@
 #include "GPS.h"
 //bmp280
 #include "bmp280.h"
-
+//qmc6309
+#include "lib/WMM_Tiny/Core/Inc/wmm.h"
 
 volatile uint8_t key_cnt=10;
 volatile uint16_t second_cnt=500;
@@ -43,6 +44,7 @@ GPS_t gps={0};          // 全局 GPS 实例
 uint8_t earth_flag=0;//是否以全球缩略图的形式显示实时坐标 1:文本形式 0:全球缩略图形式
 /*bmp280*/
 BMP280_t bmp280={0};          // 全局 BMP280 实例
+float fake_sea_level_pressure = 103019.0f; // 相对标准大气压，单位是Pa
 
 
 /**
@@ -157,13 +159,13 @@ void key_task(void)
 				u8g2_SetDrawColor(&u8g2,1);
 				u8g2_DrawStr(&u8g2,0*7,3*10,u8g2_buf);
 
-				u8g2_SendBuffer(&u8g2);
+				// u8g2_SendBuffer(&u8g2);
 			}
 			else{//全球缩略图
 				u8g2_ClearBuffer(&u8g2);
 				u8g2_oled_draw_earth(&u8g2);//在全幅缓冲区内绘制全球缩略图
 				u8g2_oled_draw_earth_pixel_VHxvLine(&u8g2,gps.lwgps_handle.latitude,gps.lwgps_handle.longitude);//在全球缩略图上绘制实时经纬度坐标点
-				u8g2_SendBuffer(&u8g2);
+				// u8g2_SendBuffer(&u8g2);
 			}
 				
 		}
@@ -176,7 +178,7 @@ void key_task(void)
 			u8g2_DrawBox(&u8g2,3*7,27,13*7,15);
 			u8g2_SetDrawColor(&u8g2,0);
 			u8g2_DrawStr(&u8g2,3*7,3*10,u8g2_buf);
-			u8g2_SendBuffer(&u8g2);
+			// u8g2_SendBuffer(&u8g2);
 		}
 
     }
@@ -208,9 +210,11 @@ void key_task(void)
     {
         printf("Key 4 pressed!\r\n");
         oled_image_jinxin(85);
-
+		
         // LCD_FillRect(0,50,85,150,0xc88c);
         // LCD_FillRect(50,100,120,200,0x57f6);
+
+		fake_sea_level_pressure = bmp280.Pressure_ture;//将当前的气压读数作为相对标准大气压，这样可以得到相对于当前环境的高度变化，适合手持设备使用
     }
     key_value=0;
 }
@@ -278,23 +282,36 @@ void task_proc(void)
 				u8g2_SetDrawColor(&u8g2,1);
 				u8g2_DrawStr(&u8g2,0*7,2*10,u8g2_buf);
 
+				// memset(u8g2_buf, 0, sizeof(u8g2_buf));
+				// var_int = (int32_t)(gps.lwgps_handle.variation * 100);//小数点后2位
+				// var_decimal_temp = var_int%100;//取出小数点后2位
+				// var_decimal = var_decimal_temp<0 ? -var_decimal_temp : var_decimal_temp;
+				// sprintf(u8g2_buf,"[Mag:%+d.%02lu]",(int16_t)var_int/100,var_decimal);
+				// u8g2_SetDrawColor(&u8g2,0);
+				// u8g2_DrawBox(&u8g2,0*7,3*10,18*7,10);
+				// u8g2_SetDrawColor(&u8g2,1);
+				// u8g2_DrawStr(&u8g2,0*7,3*10,u8g2_buf);
+
+				float Date_WMM = wmm_get_date(gps.lwgps_handle.year % 100, gps.lwgps_handle.month, gps.lwgps_handle.date);
+				float Magnetic_variation;
+				E0000(gps.lwgps_handle.latitude, gps.lwgps_handle.longitude, Date_WMM, &Magnetic_variation);
+				int32_t Magnetic_variation_frac_part = (int32_t)((Magnetic_variation - (int32_t)Magnetic_variation) * 100);
+				if (Magnetic_variation_frac_part < 0) Magnetic_variation_frac_part = -Magnetic_variation_frac_part;
 				memset(u8g2_buf, 0, sizeof(u8g2_buf));
-				var_int = (int32_t)(gps.lwgps_handle.variation * 100);//小数点后2位
-				var_decimal_temp = var_int%100;//取出小数点后2位
-				var_decimal = var_decimal_temp<0 ? -var_decimal_temp : var_decimal_temp;
-				sprintf(u8g2_buf,"[Mag:%+d.%02lu]",(int16_t)var_int/100,var_decimal);
+				sprintf(u8g2_buf,"[Mag:%+d.%02u]",(int16_t)Magnetic_variation,(uint16_t)Magnetic_variation_frac_part);
 				u8g2_SetDrawColor(&u8g2,0);
 				u8g2_DrawBox(&u8g2,0*7,3*10,18*7,10);
 				u8g2_SetDrawColor(&u8g2,1);
 				u8g2_DrawStr(&u8g2,0*7,3*10,u8g2_buf);
 
-				u8g2_SendBuffer(&u8g2);
+
+				// u8g2_SendBuffer(&u8g2);
 			}
 			else{//全球缩略图
 				u8g2_ClearBuffer(&u8g2);
 				u8g2_oled_draw_earth(&u8g2);//在全幅缓冲区内绘制全球缩略图
 				u8g2_oled_draw_earth_pixel_VHxvLine(&u8g2,gps.lwgps_handle.latitude,gps.lwgps_handle.longitude);//在全球缩略图上绘制实时经纬度坐标点
-				u8g2_SendBuffer(&u8g2);
+				// u8g2_SendBuffer(&u8g2);
 			}
 				
 		}
@@ -307,7 +324,7 @@ void task_proc(void)
 			u8g2_DrawBox(&u8g2,3*7,27,13*7,15);
 			u8g2_SetDrawColor(&u8g2,0);
 			u8g2_DrawStr(&u8g2,3*7,3*10,u8g2_buf);
-			u8g2_SendBuffer(&u8g2);
+			// u8g2_SendBuffer(&u8g2);
 		}
 
     }
@@ -319,22 +336,42 @@ void task_proc(void)
 			BMP280_Get_Temperature_ture_int32(&bmp280);
 			BMP280_Get_Pressure_ture_int32(&bmp280);
 
-			int32_t temp_fixed = bmp280.Temperature_ture;
-			int32_t int_part = temp_fixed / 100;
-			int32_t frac_part = temp_fixed - (int_part * 100);   // 避免 % 的实现差异
-			if (frac_part < 0) frac_part = -frac_part;
-			
-			int32_t altitude = 100*calculate_altitude(bmp280.Pressure_ture, 103019.0f);//单位是厘米，输出值5123表示51.23米
-			int32_t altitude_int_part = altitude / 100;
-			int32_t altitude_frac_part = altitude - (altitude_int_part * 100);   // 避免 % 的实现差异
-			if (altitude_frac_part < 0) altitude_frac_part = -altitude_frac_part;
-			printf("BMP280 Read Success! Temperature: %+ld.%02ld C, Pressure: %lu Pa, Altitude: %+ld.%02ld m\r\n",
-			       int_part,
-			       frac_part,
-			       bmp280.Pressure_ture,
-			       altitude_int_part,
-			       altitude_frac_part
+			// int32_t temp_fixed = bmp280.Temperature_ture;
+			// int32_t int_part = temp_fixed / 100;
+			// int32_t frac_part = temp_fixed - (int_part * 100);   // 避免 % 的实现差异
+			// if (frac_part < 0) frac_part = -frac_part;
+			char temp_sign = (bmp280.Temperature_ture >= 0) ? '+' : '-';
+			uint32_t temp_fixed = (bmp280.Temperature_ture >= 0) ? (uint32_t)(bmp280.Temperature_ture) : (uint32_t)(-bmp280.Temperature_ture);
+			uint16_t temp_int_part = temp_fixed / 100;
+			uint16_t temp_frac_part = temp_fixed % 100;
+
+			// int32_t altitude = 100*calculate_altitude(bmp280.Pressure_ture, fake_sea_level_pressure);//单位是厘米，输出值5123表示51.23米
+			// int32_t altitude_int_part = altitude / 100;
+			// int32_t altitude_frac_part = altitude - (altitude_int_part * 100);   // 避免 % 的实现差异
+			// if (altitude_frac_part < 0) altitude_frac_part = -altitude_frac_part;
+			int32_t altitude = 100*calculate_altitude(bmp280.Pressure_ture, fake_sea_level_pressure);//单位是厘米，输出值5123表示51.23米
+			char altitude_sign = (altitude >= 0) ? '+' : '-';
+			uint32_t altitude_fixed = (altitude >= 0) ? (uint32_t)(altitude) : (uint32_t)(-altitude);
+			uint16_t altitude_int_part = altitude_fixed / 100;
+			uint16_t altitude_frac_part = altitude_fixed % 100;
+			//输出到串口
+			printf("BMP280 Read Success! Temperature: %c%u.%02u C, Pressure: %lu Pa, Altitude: %c%u.%02u m\r\n",
+					temp_sign,
+			    	temp_int_part,
+			    	temp_frac_part,
+			    	bmp280.Pressure_ture,
+			    	altitude_sign,
+			    	altitude_int_part,
+			    	altitude_frac_part
 			);
+			//显示在OLED上
+			memset(u8g2_buf, 0, sizeof(u8g2_buf));
+			sprintf(u8g2_buf,"[R-H:%c%u.%02um]", altitude_sign, altitude_int_part, altitude_frac_part);//相对高度，最大相对高度65535m
+			u8g2_SetDrawColor(&u8g2,0);
+			u8g2_DrawBox(&u8g2,0*7,4*10,18*7,10);
+			u8g2_SetDrawColor(&u8g2,1);
+			u8g2_DrawStr(&u8g2,0*7,4*10,u8g2_buf);
+			u8g2_SendBuffer(&u8g2);
 		}
 		else printf("BMP280 Read error!\r\n");
 	}
@@ -371,6 +408,21 @@ int main(void)
 	GPS_init(&gps);               //初始化一个GPS所依赖的软硬件环境
 	/*执行到这里是DMA已经可以自动从uart4接收数据并自动拷贝到LWRB的环形缓冲区中*/
 	printf("GPS init success!\r\n");
+/*qmc6309*/
+	wmm_init();
+	// if(gps.lwgps_handle.is_valid)
+	// {
+	// 	float Date_WMM = wmm_get_date(gps.lwgps_handle.year % 100, gps.lwgps_handle.month, gps.lwgps_handle.date);
+	// 	float Magnetic_variation;
+	// 	E0000(gps.lwgps_handle.latitude, gps.lwgps_handle.longitude, Date_WMM, &Magnetic_variation);
+
+	// 	int32_t Magnetic_variation_frac_part = (int32_t)((Magnetic_variation - (int32_t)Magnetic_variation) * 100);
+	// 	if (Magnetic_variation_frac_part < 0) Magnetic_variation_frac_part = -Magnetic_variation_frac_part;
+	// 	printf("WMM magnetic declination calculated successfully! Declination: %+d.%02d degrees\r\n", (int32_t)Magnetic_variation, Magnetic_variation_frac_part);
+	// }
+	// else{//使用主控内部RTC日期
+
+	// }
 /*bmp280*/
 	if(BMP280_Init(&bmp280,BMP280_HANDHELD_DEVICE_LOW_POWER,0x77,IIC_Read_Len,IIC_Write_Len,NULL))
 	{
@@ -379,6 +431,7 @@ int main(void)
 	}
 	else
 	{
+
 		printf("BMP280 init success!\r\n");
 	}
 /*u8g2单色屏初始化*/
