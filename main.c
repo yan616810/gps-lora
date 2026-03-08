@@ -8,30 +8,8 @@
  * @copyright Copyright (c) 2026
  * 
  */
-
 #include "stm32f10x.h"
-#include "Delay.h"
-//OLED
-#include "OLED.h"
-#include "iic.h"
-//USART
-#include "USART.h"
-#include <stdio.h>
-#include <math.h>
-//key
-#include "key.h"
-//LCD
-#include "LCD.h"
-//单色屏幕u8g2图形库
-#include "u8g2.h"
-#include "u8g2_monochrome_display.h"
-#include <string.h> //memset
-//GPS
-#include "GPS.h"
-//bmp280
-#include "bmp280.h"
-//qmc6309
-#include "lib/WMM_Tiny/Core/Inc/wmm.h"
+#include "main.h"
 
 volatile uint8_t key_cnt=10;
 volatile uint16_t second_cnt=500;
@@ -101,85 +79,7 @@ void key_task(void)
     {
         printf("Long press detected!\r\n");
         earth_flag = (earth_flag == 0) ? 1 : 0; // 切换GPS显示模式
-        if (gps.lwgps_handle.is_valid) 
-		{
-            // printf("[--YLAD--]\r\n");
-			if(earth_flag)//以文本形式显示实时坐标
-			{
-				u8g2_SetFont(&u8g2,u8g2_font_courB08_tr);  //w=7  h=10
-				u8g2_SetFontPosTop(&u8g2);
-				u8g2_SetFontMode(&u8g2,0);  //显示字体的背景，不透明
-				u8g2_SetDrawColor(&u8g2,1);
-				// 可选：解析结果输出
-    			// if (lwgps_handle.is_valid) {
-    			    // printf("Lat: %.6f, Lon: %.6f, Alt: %.4f\r\n",
-    			    //     latitude, longitude, altitude);
-    			// }
-				u8g2_ClearBuffer(&u8g2);
-				memset(u8g2_buf, 0, sizeof(u8g2_buf));
-				// sprintf(u8g2_buf,"[>Lon:%03.7f<]",lwgps_handle.latitude);
-				int32_t var_int = (int32_t)(gps.lwgps_handle.latitude * 1000000);//小数点后6位可以精确到​约0.11 米
-				int32_t var_decimal_temp = var_int%1000000;//取出小数点后6位
-				uint32_t var_decimal = var_decimal_temp<0 ? -var_decimal_temp : var_decimal_temp;
-				sprintf(u8g2_buf,"[Lat:%+d.%06lu]",(int16_t)(var_int/1000000),var_decimal);
-				u8g2_SetDrawColor(&u8g2,0);
-				u8g2_DrawBox(&u8g2,0*7,0*10,18*7,10);
-				u8g2_SetDrawColor(&u8g2,1);
-				u8g2_DrawStr(&u8g2,0*7,0*10,u8g2_buf);
-
-				memset(u8g2_buf, 0, sizeof(u8g2_buf));
-				// sprintf(u8g2_buf,"[>Lon:%03.7f<]",lwgps_handle.longitude);
-				var_int = (int32_t)(gps.lwgps_handle.longitude * 1000000);//小数点后6位可以让低纬度地区精确到​约0.11 米，高纬度地区更精确
-				var_decimal_temp = var_int%1000000;//取出小数点后6位
-				var_decimal = var_decimal_temp<0 ? -var_decimal_temp : var_decimal_temp;
-				sprintf(u8g2_buf,"[Lon:%+d.%06lu]",(int16_t)(var_int/1000000),var_decimal);
-				u8g2_SetDrawColor(&u8g2,0);
-				u8g2_DrawBox(&u8g2,0*7,1*10,18*7,10);
-				u8g2_SetDrawColor(&u8g2,1);
-				u8g2_DrawStr(&u8g2,0*7,1*10,u8g2_buf);
-
-				memset(u8g2_buf, 0, sizeof(u8g2_buf));
-				// sprintf(u8g2_buf,"[>Alt:%03.5f<]", lwgps_handle.altitude);
-				var_int = (int32_t)(gps.lwgps_handle.altitude * 100);//小数点后2位可以精确到厘米
-				var_decimal_temp = var_int%100;//取出小数点后2位
-				var_decimal = var_decimal_temp<0 ? -var_decimal_temp : var_decimal_temp;
-				sprintf(u8g2_buf,"[Alt:%+d.%02lu]",(int16_t)(var_int/100),var_decimal);
-				u8g2_SetDrawColor(&u8g2,0);
-				u8g2_DrawBox(&u8g2,0*7,2*10,18*7,10);
-				u8g2_SetDrawColor(&u8g2,1);
-				u8g2_DrawStr(&u8g2,0*7,2*10,u8g2_buf);
-
-				memset(u8g2_buf, 0, sizeof(u8g2_buf));
-				var_int = (int32_t)(gps.lwgps_handle.variation * 100);//小数点后2位
-				var_decimal_temp = var_int%100;//取出小数点后2位
-				var_decimal = var_decimal_temp<0 ? -var_decimal_temp : var_decimal_temp;
-				sprintf(u8g2_buf,"[Mag:%+d.%02lu]",(int16_t)var_int/100,var_decimal);
-				u8g2_SetDrawColor(&u8g2,0);
-				u8g2_DrawBox(&u8g2,0*7,3*10,18*7,10);
-				u8g2_SetDrawColor(&u8g2,1);
-				u8g2_DrawStr(&u8g2,0*7,3*10,u8g2_buf);
-
-				// u8g2_SendBuffer(&u8g2);
-			}
-			else{//全球缩略图
-				u8g2_ClearBuffer(&u8g2);
-				u8g2_oled_draw_earth(&u8g2);//在全幅缓冲区内绘制全球缩略图
-				u8g2_oled_draw_earth_pixel_VHxvLine(&u8g2,gps.lwgps_handle.latitude,gps.lwgps_handle.longitude);//在全球缩略图上绘制实时经纬度坐标点
-				// u8g2_SendBuffer(&u8g2);
-			}
-				
-		}
-		else
-		{
-			// u8g2_ClearBuffer(&u8g2);
-			memset(u8g2_buf, 0, sizeof(u8g2_buf));
-			sprintf(u8g2_buf,"[>GPS No Data<]");
-			u8g2_SetDrawColor(&u8g2,1);
-			u8g2_DrawBox(&u8g2,3*7,27,13*7,15);
-			u8g2_SetDrawColor(&u8g2,0);
-			u8g2_DrawStr(&u8g2,3*7,3*10,u8g2_buf);
-			// u8g2_SendBuffer(&u8g2);
-		}
+		UI_GPS_display_earth();
 
     }
     else if(key_value == 'D')
@@ -234,98 +134,7 @@ void task_proc(void)
     {
 		second_cnt=0;
 		GPS_lwgps_parser_lwrb(&gps);
-        if (gps.lwgps_handle.is_valid) 
-		{
-			if(earth_flag)//以文本形式显示实时坐标
-			{
-				u8g2_SetFont(&u8g2,u8g2_font_courB08_tr);  //w=7  h=10
-				u8g2_SetFontPosTop(&u8g2);
-				u8g2_SetFontMode(&u8g2,0);  //显示字体的背景，不透明
-				u8g2_SetDrawColor(&u8g2,1);
-
-				// 可选：解析结果输出
-    			// if (lwgps_handle.is_valid) {
-    			    // printf("Lat: %.6f, Lon: %.6f, Alt: %.4f\r\n",
-    			    //     latitude, longitude, altitude);
-    			// }
-				u8g2_ClearBuffer(&u8g2);
-				memset(u8g2_buf, 0, sizeof(u8g2_buf));
-				// sprintf(u8g2_buf,"[>Lon:%03.7f<]",lwgps_handle.latitude);
-				int32_t var_int = (int32_t)(gps.lwgps_handle.latitude * 1000000);//小数点后6位可以精确到​约0.11 米
-				int32_t var_decimal_temp = var_int%1000000;//取出小数点后6位
-				uint32_t var_decimal = var_decimal_temp<0 ? -var_decimal_temp : var_decimal_temp;
-				sprintf(u8g2_buf,"[Lat:%+d.%06lu]",(int16_t)gps.lwgps_handle.latitude,var_decimal);
-				u8g2_SetDrawColor(&u8g2,0);
-				u8g2_DrawBox(&u8g2,0*7,0*10,18*7,10);
-				u8g2_SetDrawColor(&u8g2,1);
-				u8g2_DrawStr(&u8g2,0*7,0*10,u8g2_buf);
-
-				memset(u8g2_buf, 0, sizeof(u8g2_buf));
-				// sprintf(u8g2_buf,"[>Lon:%03.7f<]",lwgps_handle.longitude);
-				var_int = (int32_t)(gps.lwgps_handle.longitude * 1000000);//小数点后6位可以让低纬度地区精确到​约0.11 米，高纬度地区更精确
-				var_decimal_temp = var_int%1000000;//取出小数点后6位
-				var_decimal = var_decimal_temp<0 ? -var_decimal_temp : var_decimal_temp;
-				sprintf(u8g2_buf,"[Lon:%+d.%06lu]",(int16_t)gps.lwgps_handle.longitude,var_decimal);
-				u8g2_SetDrawColor(&u8g2,0);
-				u8g2_DrawBox(&u8g2,0*7,1*10,18*7,10);
-				u8g2_SetDrawColor(&u8g2,1);
-				u8g2_DrawStr(&u8g2,0*7,1*10,u8g2_buf);
-
-				memset(u8g2_buf, 0, sizeof(u8g2_buf));
-				// sprintf(u8g2_buf,"[>Alt:%03.5f<]", lwgps_handle.altitude);
-				var_int = (int32_t)(gps.lwgps_handle.altitude * 100);//小数点后2位可以精确到厘米
-				var_decimal_temp = var_int%100;//取出小数点后2位
-				var_decimal = var_decimal_temp<0 ? -var_decimal_temp : var_decimal_temp;
-				sprintf(u8g2_buf,"[Alt:%+d.%02lu]",(int16_t)gps.lwgps_handle.altitude,var_decimal);
-				u8g2_SetDrawColor(&u8g2,0);
-				u8g2_DrawBox(&u8g2,0*7,2*10,18*7,10);
-				u8g2_SetDrawColor(&u8g2,1);
-				u8g2_DrawStr(&u8g2,0*7,2*10,u8g2_buf);
-
-				// memset(u8g2_buf, 0, sizeof(u8g2_buf));
-				// var_int = (int32_t)(gps.lwgps_handle.variation * 100);//小数点后2位
-				// var_decimal_temp = var_int%100;//取出小数点后2位
-				// var_decimal = var_decimal_temp<0 ? -var_decimal_temp : var_decimal_temp;
-				// sprintf(u8g2_buf,"[Mag:%+d.%02lu]",(int16_t)var_int/100,var_decimal);
-				// u8g2_SetDrawColor(&u8g2,0);
-				// u8g2_DrawBox(&u8g2,0*7,3*10,18*7,10);
-				// u8g2_SetDrawColor(&u8g2,1);
-				// u8g2_DrawStr(&u8g2,0*7,3*10,u8g2_buf);
-
-				float Date_WMM = wmm_get_date(gps.lwgps_handle.year % 100, gps.lwgps_handle.month, gps.lwgps_handle.date);
-				float Magnetic_variation;
-				E0000(gps.lwgps_handle.latitude, gps.lwgps_handle.longitude, Date_WMM, &Magnetic_variation);
-				int32_t Magnetic_variation_frac_part = (int32_t)((Magnetic_variation - (int32_t)Magnetic_variation) * 100);
-				if (Magnetic_variation_frac_part < 0) Magnetic_variation_frac_part = -Magnetic_variation_frac_part;
-				memset(u8g2_buf, 0, sizeof(u8g2_buf));
-				sprintf(u8g2_buf,"[Mag:%+d.%02u]",(int16_t)Magnetic_variation,(uint16_t)Magnetic_variation_frac_part);
-				u8g2_SetDrawColor(&u8g2,0);
-				u8g2_DrawBox(&u8g2,0*7,3*10,18*7,10);
-				u8g2_SetDrawColor(&u8g2,1);
-				u8g2_DrawStr(&u8g2,0*7,3*10,u8g2_buf);
-
-
-				// u8g2_SendBuffer(&u8g2);
-			}
-			else{//全球缩略图
-				u8g2_ClearBuffer(&u8g2);
-				u8g2_oled_draw_earth(&u8g2);//在全幅缓冲区内绘制全球缩略图
-				u8g2_oled_draw_earth_pixel_VHxvLine(&u8g2,gps.lwgps_handle.latitude,gps.lwgps_handle.longitude);//在全球缩略图上绘制实时经纬度坐标点
-				// u8g2_SendBuffer(&u8g2);
-			}
-				
-		}
-		else
-		{
-			// u8g2_ClearBuffer(&u8g2);
-			memset(u8g2_buf, 0, sizeof(u8g2_buf));
-			sprintf(u8g2_buf,"[>GPS No Data<]");
-			u8g2_SetDrawColor(&u8g2,1);
-			u8g2_DrawBox(&u8g2,3*7,27,13*7,15);
-			u8g2_SetDrawColor(&u8g2,0);
-			u8g2_DrawStr(&u8g2,3*7,3*10,u8g2_buf);
-			// u8g2_SendBuffer(&u8g2);
-		}
+		UI_GPS_display_earth();
 
     }
 	if(bmp280_cnt==100)
@@ -336,24 +145,19 @@ void task_proc(void)
 			BMP280_Get_Temperature_ture_int32(&bmp280);
 			BMP280_Get_Pressure_ture_int32(&bmp280);
 
-			// int32_t temp_fixed = bmp280.Temperature_ture;
-			// int32_t int_part = temp_fixed / 100;
-			// int32_t frac_part = temp_fixed - (int_part * 100);   // 避免 % 的实现差异
-			// if (frac_part < 0) frac_part = -frac_part;
+			//有符号整数int32_t转符号整数部分和小数部分
 			char temp_sign = (bmp280.Temperature_ture >= 0) ? '+' : '-';
-			uint32_t temp_fixed = (bmp280.Temperature_ture >= 0) ? (uint32_t)(bmp280.Temperature_ture) : (uint32_t)(-bmp280.Temperature_ture);
-			uint16_t temp_int_part = temp_fixed / 100;
-			uint16_t temp_frac_part = temp_fixed % 100;
-
-			// int32_t altitude = 100*calculate_altitude(bmp280.Pressure_ture, fake_sea_level_pressure);//单位是厘米，输出值5123表示51.23米
-			// int32_t altitude_int_part = altitude / 100;
-			// int32_t altitude_frac_part = altitude - (altitude_int_part * 100);   // 避免 % 的实现差异
-			// if (altitude_frac_part < 0) altitude_frac_part = -altitude_frac_part;
-			int32_t altitude = 100*calculate_altitude(bmp280.Pressure_ture, fake_sea_level_pressure);//单位是厘米，输出值5123表示51.23米
+			uint32_t temp_labs = (bmp280.Temperature_ture >= 0) ? (uint32_t)(bmp280.Temperature_ture) : (uint32_t)(-bmp280.Temperature_ture);
+			uint16_t temp_int_part = temp_labs / 100;
+			uint16_t temp_frac_part = temp_labs % 100;
+			//浮点float转符号整数部分和小数部分
+			float altitude = calculate_altitude(bmp280.Pressure_ture, fake_sea_level_pressure);//四舍五入保留小数点后两位，输出值5123表示51.23米
 			char altitude_sign = (altitude >= 0) ? '+' : '-';
-			uint32_t altitude_fixed = (altitude >= 0) ? (uint32_t)(altitude) : (uint32_t)(-altitude);
-			uint16_t altitude_int_part = altitude_fixed / 100;
-			uint16_t altitude_frac_part = altitude_fixed % 100;
+			float abs_var = fabsf(altitude);
+			uint32_t temp = abs_var * 100.0f + 0.5f;//四舍五入保留小数点后两位
+			uint16_t altitude_int_part = temp / 100;//整数部分
+			uint16_t altitude_frac_part = temp % 100;//小数部分
+
 			//输出到串口
 			printf("BMP280 Read Success! Temperature: %c%u.%02u C, Pressure: %lu Pa, Altitude: %c%u.%02u m\r\n",
 					temp_sign,
