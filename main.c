@@ -13,7 +13,7 @@
 
 volatile uint8_t key_cnt=10;
 volatile uint16_t second_cnt=500;
-volatile uint8_t bmp280_cnt=100;//bmp280读取计数器，达到一定值后读取一次bmp280数据
+volatile uint8_t bmp280_cnt=200;//bmp280读取计数器，达到一定值后读取一次bmp280数据
 /*u8g2*/
 u8g2_t u8g2;
 char u8g2_buf[20];
@@ -65,7 +65,7 @@ void TIM6_IRQHandler (void)
     {
         if(key_cnt<10)key_cnt++;
         if(second_cnt<500)second_cnt++;
-		if(bmp280_cnt<100)bmp280_cnt++;
+		if(bmp280_cnt<200)bmp280_cnt++;
         TIM_ClearITPendingBit(TIM6, TIM_IT_Update);
     }
 }
@@ -80,7 +80,7 @@ void key_task(void)
         printf("Long press detected!\r\n");
         earth_flag = (earth_flag == 0) ? 1 : 0; // 切换GPS显示模式
 		UI_GPS_display_earth();
-
+		// u8g2_SendBuffer(&u8g2);
     }
     else if(key_value == 'D')
     {
@@ -135,9 +135,9 @@ void task_proc(void)
 		second_cnt=0;
 		GPS_lwgps_parser_lwrb(&gps);
 		UI_GPS_display_earth();
-
+		// u8g2_SendBuffer(&u8g2);
     }
-	if(bmp280_cnt==100)
+	if(bmp280_cnt==200)
 	{
 		bmp280_cnt=0;
 		if(BMP280_Get_PressureTemperature_ADC(&bmp280) == 0)
@@ -151,15 +151,15 @@ void task_proc(void)
 			uint16_t temp_int_part = temp_labs / 100;
 			uint16_t temp_frac_part = temp_labs % 100;
 			//浮点float转符号整数部分和小数部分
-			float altitude = calculate_altitude(bmp280.Pressure_ture, fake_sea_level_pressure);//四舍五入保留小数点后两位，输出值5123表示51.23米
+			float altitude = calculate_altitude(bmp280.Pressure_ture, fake_sea_level_pressure);
 			char altitude_sign = (altitude >= 0) ? '+' : '-';
 			float abs_var = fabsf(altitude);
-			uint32_t temp = abs_var * 100.0f + 0.5f;//四舍五入保留小数点后两位
-			uint16_t altitude_int_part = temp / 100;//整数部分
-			uint16_t altitude_frac_part = temp % 100;//小数部分
+			uint32_t temp = abs_var * 10.0f + 0.5f;//四舍五入保留小数点后两位
+			uint16_t altitude_int_part = temp / 10;//整数部分
+			uint16_t altitude_frac_part = temp % 10;//小数部分
 
 			//输出到串口
-			printf("BMP280 Read Success! Temperature: %c%u.%02u C, Pressure: %lu Pa, Altitude: %c%u.%02u m\r\n",
+			printf("BMP280 Read Success! Temperature: %c%u.%02u C, Pressure: %lu Pa, Altitude: %c%u.%01u m\r\n",
 					temp_sign,
 			    	temp_int_part,
 			    	temp_frac_part,
@@ -170,7 +170,7 @@ void task_proc(void)
 			);
 			//显示在OLED上
 			memset(u8g2_buf, 0, sizeof(u8g2_buf));
-			sprintf(u8g2_buf,"[R-H:%c%u.%02um]", altitude_sign, altitude_int_part, altitude_frac_part);//相对高度，最大相对高度65535m
+			sprintf(u8g2_buf,"[R-H:%c%u.%01um]", altitude_sign, altitude_int_part, altitude_frac_part);//相对高度，最大相对高度65535m
 			u8g2_SetDrawColor(&u8g2,0);
 			u8g2_DrawBox(&u8g2,0*7,4*10,18*7,10);
 			u8g2_SetDrawColor(&u8g2,1);
@@ -198,8 +198,9 @@ int main(void)
 /*按键初始化*/
     key_init();
 /*软件IIC初始化，搜索挂载的iic设备数*/
+	Delay_ms(100);//等待外设上电稳定,这一版软件，不等上电稳定，根本无法得到iic设备的ACK回应；bmp280-2ms；qmc6309-1ms;MAX30102-1ms
     IIC_InitPins_or_ChangePins(RCC_APB2Periph_GPIOB,GPIOB,GPIO_Pin_6,RCC_APB2Periph_GPIOB,GPIOB,GPIO_Pin_7);   
-    IIC_Set_speed(5);
+    IIC_Set_speed(10);
     IIC_Search_all_devices_printf_example();
     IIC_Set_speed(1);
 /*OLED显示初始化*/
