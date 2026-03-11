@@ -116,12 +116,12 @@ typedef enum
 typedef enum
 {
     BMP280_Customization                               = 0x00, /*Customization*/
-    BMP280_HANDHELD_DEVICE_LOW_POWER                   = 0x01, /*Handheld device low-power (e.g. Android)*/
-    BMP280_HANDHELD_DEVICE_DYNAMIC                     = 0x02, /*Handheld device dynamic (e.g. Android)-动态手持设备*/
-    BMP280_WEATHER_MONITORING                          = 0x03, /*Weather monitoring (lowest power)-气象站*/
-    BMP280_ELEVATOR_FLOOR_CHANGE_DETECTION_MEASUREMENT = 0x04, /*Elevator / floor change detection-电梯/楼层变化检测*/
-    BMP280_DROP_DETECTION_MEASUREMENT                  = 0x05, /*Drop detection-掉落检测*/
-    BMP280_INDOOR_NAVIGATION                           = 0x06, /*Indoor navigation-室内导航*/
+    BMP280_HANDHELD_DEVICE_LOW_POWER                   = 0x01, /*Handheld device low-power (e.g. Android) - 10HZ*/
+    BMP280_HANDHELD_DEVICE_DYNAMIC                     = 0x02, /*Handheld device dynamic (e.g. Android)-动态手持设备 - 83.3HZ*/
+    BMP280_WEATHER_MONITORING                          = 0x03, /*Weather monitoring (lowest power)-气象站 - 1/60HZ(推荐1分钟读一次数据)*/
+    BMP280_ELEVATOR_FLOOR_CHANGE_DETECTION_MEASUREMENT = 0x04, /*Elevator / floor change detection-电梯/楼层变化检测 - 7.3HZ*/
+    BMP280_DROP_DETECTION_MEASUREMENT                  = 0x05, /*Drop detection-掉落检测 - 125HZ*/
+    BMP280_INDOOR_NAVIGATION                           = 0x06, /*Indoor navigation-室内导航 - 26.3HZ*/
 } BMP280_Application_to_e;
 
 

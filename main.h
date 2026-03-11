@@ -26,7 +26,7 @@
 #include "bmp280.h"
 //qmc6309
 #include "lib/WMM_Tiny/Core/Inc/wmm.h"
-
+#include "qmc6309.h"
 
 /*GPS*/
 extern GPS_t gps;           // 全局 GPS 实例
@@ -37,6 +37,7 @@ extern char u8g2_buf[20];
 /*bmp280*/
 extern BMP280_t bmp280;                // 全局 BMP280 实例
 extern float fake_sea_level_pressure;  // 相对标准大气压，单位是Pa
-
+/*qmc6309*/
+extern QMC6309_t qmc6309;
 
 #endif // !__MAIN_H

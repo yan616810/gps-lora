@@ -5,274 +5,20 @@
 /*
 1.连接BMP280时，如果连接的是模块&从设备地址是0x76，SDO地址位可不用接地(其模块内部已经接地)。
 2.CSB接3.3V选择IIC接口协议。
-
 */
-// struct bmp280 p_bmp280;
 
 
-// u8 BMP280_Set_TemperatureOversampling(BMP280_T_OVERSAMPLING oversamp_temperature)
-// {
-// 	u8 v_data_u8=0,res=0;
-// 	if (oversamp_temperature<=BMP280_T_MODE_x5) 
-// 	{
-// 		p_bmp280.oversamp_temperature=oversamp_temperature;
-// 		v_data_u8=IIC_Read_Byte(BMP280_SlaveAddr,BMP280_CTRLMEAS_REG);//读取出控制寄存器的值
-// 		v_data_u8=((v_data_u8&~0xE0)|((p_bmp280.oversamp_temperature<<5)&0xE0));
-// 		res=IIC_Write_Byte(BMP280_SlaveAddr,BMP280_CTRLMEAS_REG,v_data_u8);
-// 	}
-// 	else res=1;
-// 	return res;
-// }
-// u8 BMP280_CalibParam(void)
-// {
-// 	u8 a_data_u8[24],res=0;
-// 	//memset(a_data_u8,0,24*sizeof(u8));
-// 	res=IIC_Read_Len(BMP280_SlaveAddr,BMP280_DIG_T1_LSB_REG,24,a_data_u8);
-// 	p_bmp280.calib_param.dig_T1=(u16)((((u16)((u8)a_data_u8[1]))<<8)|a_data_u8[0]);
-// 	p_bmp280.calib_param.dig_T2=(s16)((((s16)((s8)a_data_u8[3]))<<8)|a_data_u8[2]);
-// 	p_bmp280.calib_param.dig_T3=(s16)((((s16)((s8)a_data_u8[5]))<<8)|a_data_u8[4]);
-// 	p_bmp280.calib_param.dig_P1=(u16)((((u16)((u8)a_data_u8[7]))<<8)|a_data_u8[6]);
-// 	p_bmp280.calib_param.dig_P2=(s16)((((s16)((s8)a_data_u8[9]))<<8)|a_data_u8[8]);
-// 	p_bmp280.calib_param.dig_P3=(s16)((((s16)((s8)a_data_u8[11]))<<8)|a_data_u8[10]);
-// 	p_bmp280.calib_param.dig_P4=(s16)((((s16)((s8)a_data_u8[13]))<<8)|a_data_u8[12]);
-// 	p_bmp280.calib_param.dig_P5=(s16)((((s16)((s8)a_data_u8[15]))<<8)|a_data_u8[14]);
-// 	p_bmp280.calib_param.dig_P6=(s16)((((s16)((s8)a_data_u8[17]))<<8)|a_data_u8[16]);
-// 	p_bmp280.calib_param.dig_P7=(s16)((((s16)((s8)a_data_u8[19]))<<8)|a_data_u8[18]);
-// 	p_bmp280.calib_param.dig_P8=(s16)((((s16)((s8)a_data_u8[21]))<<8)|a_data_u8[20]);
-// 	p_bmp280.calib_param.dig_P9=(s16)((((s16)((s8)a_data_u8[23]))<<8)|a_data_u8[22]);
-// 	return res;
-// }
-// u8 BMP280_SetPowerMode(BMP280_POWER_MODE_e mode)
-// {
-// 	u8 v_mode_u8=0,res=0;
-// 	if (mode<=BMP280_NORMAL_MODE)
-// 	{
-// 		v_mode_u8=(p_bmp280.oversamp_temperature<<5)+(p_bmp280.oversamp_pressure<<2)+mode;
-// 		res=IIC_Write_Byte(BMP280_SlaveAddr,BMP280_CTRLMEAS_REG,v_mode_u8);
-// 		}
-// 	else res=2;
-// 		return res;
-// }
-// u8 BMP280_SetWorkMode(WORKING_MODE mode)
-// {
-// 	u8 res=0,v_data_u8=0;
-// 	if (mode<=0x04) 
-// 	{
-// 		v_data_u8=IIC_Read_Byte(BMP280_SlaveAddr,BMP280_CTRLMEAS_REG);//读取出控制寄存器的值
-// 		switch(mode)
-// 		{
-// 			case BMP280_ULTRA_LOW_POWER_MODE:
-// 				p_bmp280.oversamp_temperature=BMP280_P_MODE_x1;
-// 			p_bmp280.oversamp_pressure=BMP280_P_MODE_x1;
-// 			break;
-			
-// 			case BMP280_LOW_POWER_MODE:
-// 				p_bmp280.oversamp_temperature=BMP280_P_MODE_x1;
-// 			p_bmp280.oversamp_pressure=BMP280_P_MODE_x2;
-// 			break;
-			
-// 			case BMP280_STANDARD_RESOLUTION_MODE:
-// 				p_bmp280.oversamp_temperature=BMP280_P_MODE_x1;
-// 			p_bmp280.oversamp_pressure=BMP280_P_MODE_x4;				
-// 			break;
-			
-// 			case BMP280_HIGH_RESOLUTION_MODE:
-// 				p_bmp280.oversamp_temperature=BMP280_P_MODE_x1;
-// 			p_bmp280.oversamp_pressure=BMP280_P_MODE_x8;
-// 			break;
-			
-// 			case BMP280_ULTRA_HIGH_RESOLUTION_MODE:
-// 				p_bmp280.oversamp_temperature=BMP280_P_MODE_x2;
-// 			p_bmp280.oversamp_pressure=BMP280_P_MODE_x16;
-// 			break;
-// 		}
-// 		v_data_u8=((v_data_u8&~0xE0)|((p_bmp280.oversamp_temperature<<5)&0xE0));
-// 		v_data_u8=((v_data_u8&~0x1C)|((p_bmp280.oversamp_pressure<<2)&0x1C));
-// 		res=IIC_Write_Byte(BMP280_SlaveAddr,BMP280_CTRLMEAS_REG,v_data_u8);
-// 	} 
-// 	else res=1;
-// 	return res;
-// }
-// u8 BMP280_SetStandbyDurn(BMP280_T_SB standby_durn)
-// {
-// 	u8 v_data_u8=0;
-// 	v_data_u8=IIC_Read_Byte(BMP280_SlaveAddr,BMP280_CONFIG_REG);                             //读取出寄存器的值
-// 	v_data_u8=((v_data_u8&~0xE0)|((standby_durn<<5)&0xE0));                    //高3位
-// 	return IIC_Write_Byte(BMP280_SlaveAddr,BMP280_CONFIG_REG,v_data_u8);
-// }
-// u8 bmp_filter(BMP280_FILTER_COEFFICIENT filter)
-// {
-// 	u8 v_data_u8=0;
-// 	v_data_u8=IIC_Read_Byte(BMP280_SlaveAddr,BMP280_CONFIG_REG);
-// 	v_data_u8=((v_data_u8&~0x1C)|((filter<<3)&0x1C)); //此处应为<<2
-// 	return IIC_Write_Byte(BMP280_SlaveAddr,BMP280_CONFIG_REG,v_data_u8);
-// }
-// u8 BMP280_SetSoftReset(void)
-// {
-// 	return (IIC_Write_Byte(BMP280_SlaveAddr,BMP280_RESET_REG,BMP280_RESET_VALUE));
-
-// }
-
-// u8 BMP280_Init(void)
-// {
-// 	BMP280_iic_or_spi_init();//bmp280依赖的主控软硬件初始化
-
-// 	// if(BMP280_SetSoftReset()) return 1; 
-// 	// delay_ms(200); //软件上电复位后需要等待2ms才可通信
-// 	if(BMP280_Chack()) return 2;
-// 	else
-// 	{
-// 		if(BMP280_CalibParam())
-// 			return 3;
-// 		if(BMP280_SetSoftReset())
-// 			return 4;
-// 		if(qingling())
-// 			return 5;
-// 		if(BMP280_SetPowerMode(BMP280_NORMAL_MODE))
-// 			return 6;
-// 		if(BMP280_SetWorkMode(BMP280_ULTRA_HIGH_RESOLUTION_MODE))
-// 			return 7;
-// 		if(BMP280_SetStandbyDurn(BMP280_T_SB_0_5MS))
-// 			return 8;
-// 		if(bmp_filter(BMP280_FILTER_MODE_4))
-// 			return 9;
-// 	}
-// 	return 0;
-// }
-// /********************************/
-// u8 BMP280_ReadUncompPressureTemperature(s32 *un_press,s32 *un_temp)
-// {
-// 	u8 a_data_u8[6]={0,0,0,0,0,0},res = 0;
-// 	res=IIC_Read_Len(BMP280_SlaveAddr,BMP280_PRESSURE_MSB_REG,6,a_data_u8);
-// 	*un_press=(s32)((((u32)(a_data_u8[0]))<<12)|(((u32)(a_data_u8[1]))<<4)|((u32)a_data_u8[2]>>4));/* 气压 */
-// 	*un_temp=(s32)((((u32)(a_data_u8[3]))<<12)| (((u32)(a_data_u8[4]))<<4)|((u32)a_data_u8[5]>>4));/* 温度 */
-// 	return res;
-// }
-
-// // Returns temperature in DegC, resolution is 0.01 DegC. Output value of “5123” equals 51.23 DegC.
-// // t_fine carries fine temperature as global value
-// BMP280_S32_t t_fine;
-
-// BMP280_S32_t bmp280_compensate_T_int32(BMP280_S32_t adc_T)
-// {
-//     BMP280_S32_t var1, var2, T;
-
-//     var1 = (((adc_T>>3) - ((BMP280_S32_t)dig_T1<<1)) * ((BMP280_S32_t)dig_T2)) >> 11;
-//     var2 = (((((adc_T>>4) - ((BMP280_S32_t)dig_T1)) * ((adc_T>>4) - ((BMP280_S32_t)dig_T1))) >> 12) *
-//             ((BMP280_S32_t)dig_T3)) >> 14;
-
-//     t_fine = var1 + var2;
-//     T = (t_fine * 5 + 128) >> 8;
-
-//     return T;
-// }
-// /*s32 BMP280_CompensateTemperatureInt32(s32 un_temp)
-// {
-// 	s32 v_x1_u32r=0;
-// 	s32 v_x2_u32r=0;
-// 	s32 temperature=0;
-// 	v_x1_u32r=((((un_temp>>3)-((s32)p_bmp280.calib_param.dig_T1<<1)))*((s32)p_bmp280.calib_param.dig_T2))>>11;
-// 	v_x2_u32r=(((((un_temp>>4)-((s32)p_bmp280.calib_param.dig_T1))*((un_temp>>4)-((s32)p_bmp280.calib_param.dig_T1)))>>12)*((s32)p_bmp280.calib_param.dig_T3))>>14;
-// 	p_bmp280.calib_param.t_fine=v_x1_u32r+v_x2_u32r;
-// 	temperature=(p_bmp280.calib_param.t_fine*5+128)>> 8;
-// 	return temperature;
-// }*/
-// s32 BMP280_CompensateTemperatureInt32(s32 un_temp,
-//                                      struct bmp280 *dev)
-// {
-//     s32 var1, var2;
-//     s32 temperature;
-
-//     var1 =
-//         ((((un_temp>>3) - ((s32) dev->calib_param.dig_T1<<1))) *
-//          ((s32) dev->calib_param.dig_T2))>>11;
-//     var2 =
-//         (((((un_temp>>4) - ((s32) dev->calib_param.dig_T1)) *
-//            ((un_temp>>4) - ((s32) dev->calib_param.dig_T1)))>>12) *
-//          ((s32) dev->calib_param.dig_T3))>>14;
-
-//     dev->calib_param.t_fine = var1 + var2;
-
-//     temperature =(dev->calib_param.t_fine * 5 + 128)>>8;
-//     return temperature;
-// }
-
-// /*u32 BMP280_CompensatePressureInt32(s32 un_press)
-// {
-// 	s32 v_x1_u32r=0;
-// 	s32 v_x2_u32r=0;
-// 	u32 v_pressure_u32=0;
-// 	v_x1_u32r=(((s32)p_bmp280.calib_param.t_fine)>>1)-(s32)64000;
-// 	v_x2_u32r=(((v_x1_u32r>>2)* (v_x1_u32r>>2))>>11)*((s32)p_bmp280.calib_param.dig_P6);
-// 	v_x2_u32r=v_x2_u32r+((v_x1_u32r *((s32)p_bmp280.calib_param.dig_P5))<< 1);
-// 	v_x2_u32r=(v_x2_u32r>>2)+(((s32)p_bmp280.calib_param.dig_P4)<<16);
-// 	v_x1_u32r=(((p_bmp280.calib_param.dig_P3*(((v_x1_u32r>>2)*(v_x1_u32r>>2))>>13))>>3)+((((s32)p_bmp280.calib_param.dig_P2)* v_x1_u32r)>>1))>>18;
-// 	v_x1_u32r=((((32768 + v_x1_u32r))* ((s32)p_bmp280.calib_param.dig_P1))>>15);
-// 	v_pressure_u32=(((u32)(((s32)1048576)-un_press)-(v_x2_u32r>>12)))* 3125;
-// 	if(v_pressure_u32<0x80000000)
-// 		if(v_x1_u32r!=0)
-// 			v_pressure_u32=(v_pressure_u32<<1)/((u32)v_x1_u32r);
-// 		else return 0;
-// 	else if (v_x1_u32r!=0)
-// 		v_pressure_u32=(v_pressure_u32/(u32)v_x1_u32r)*2;
-// 	else return 0;
-// 	v_x1_u32r=(((s32)p_bmp280.calib_param.dig_P9)*((s32)(((v_pressure_u32>>3)*(v_pressure_u32>>3))>>3)))>>12;
-// 	v_x2_u32r=(((s32)(v_pressure_u32>>2))*((s32)p_bmp280.calib_param.dig_P8))>>13;
-// 	v_pressure_u32=(u32)((s32)v_pressure_u32+((v_x1_u32r+v_x2_u32r+ p_bmp280.calib_param.dig_P7)>>4));
-// 	return v_pressure_u32;
-// }*/
-// u32 BMP280_CompensatePressureInt32(s32 un_press,
-//                                   const struct bmp280 *dev)
-// {
-//     s32 var1, var2;
-//     u32 pressure = 0;
-
-//     var1 = (((s32) dev->calib_param.t_fine) / 2) - (s32) 64000;
-//     var2 = (((var1 / 4) * (var1 / 4)) / 2048) * ((s32) dev->calib_param.dig_P6);
-//     var2 = var2 + ((var1 * ((s32) dev->calib_param.dig_P5)) * 2);
-//     var2 = (var2 / 4) + (((s32) dev->calib_param.dig_P4) * 65536);
-//     var1 =
-//         (((dev->calib_param.dig_P3 * (((var1 / 4) * (var1 / 4)) / 8192)) / 8) +
-//          ((((s32) dev->calib_param.dig_P2) * var1) / 2)) / 262144;
-//     var1 = ((((32768 + var1)) * ((s32) dev->calib_param.dig_P1)) / 32768);
-
-//     /* Avoid exception caused by division with zero */
-//     if (var1 != 0)
-//     {
-//         pressure = (((u32)(((s32)1048576) - un_press) - (var2 / 4096))) * 3125;
-
-//         /* Check for overflows against UINT32_MAX/2; if pressure is left-shifted by 1 */
-//         if (pressure < 0x80000000)
-//         {
-//             pressure = (pressure * 2) / ((u32) var1);
-//         }
-//         else
-//         {
-//             pressure = (pressure / (u32) var1) * 2;
-//         }
-
-//         var1 = (((s32) dev->calib_param.dig_P9) * ((s32) (((pressure / 8) * (pressure / 8)) / 8192))) / 4096;
-//         var2 = (((s32) (pressure / 4)) * ((s32) dev->calib_param.dig_P8)) / 8192;
-//         pressure = (u32) ((s32) pressure + ((var1 + var2 + dev->calib_param.dig_P7) / 16));
-//     }
-
-//     return pressure;
-// }
-// u8 BMP280_ReadPressureTemperature(u32 *press,s32 *temp)
-// {
-// 	s32 un_press=0;
-// 	s32 un_temp=0;
-// 	u8 res=0;
-// 	res=BMP280_ReadUncompPressureTemperature(&un_press,&un_temp);
-	
-// 	/* 读取真实的温度值和气压值*/
-// 	*temp=BMP280_CompensateTemperatureInt32(un_temp,&p_bmp280);
-// 	*press=BMP280_CompensatePressureInt32(un_press,&p_bmp280);
-// 	return res;
-// }
-
-
-
+/*
+1.后续想单独更改某个高级参数时，除了BMP280_Set_Application_to()之外(他会将所有参数一次性都设置完成)，即调用相应的Set设置函数前需要先调用BMP280_Get_config_and_ctrlmeas_reg()读取现在芯片内具体的真实配置(仅开头需要调用一次)，并且手动将bmp280->config_copy和bmp280->ctrl_meas_copy这两个成员变量赋给bmp280->config和bmp280->ctrl_meas；然后调用相应的Set设置函数修改某个参数；最后调用BMP280_Send_Refresh_Settings()将修改后的设置写入到芯片内。
+注：上面的手动同步“bmp280->config_copy和bmp280->ctrl_meas_copy这两个成员变量赋给bmp280->config和bmp280->ctrl_meas”,可以合并到BMP280_Get_config_and_ctrlmeas_reg()函数内，这样用户就不需要手动同步了，直接调用BMP280_Get_config_and_ctrlmeas_reg()函数就会自动将芯片内的设置同步到实例的成员变量中，用户就可以随时查看当前的设置参数了；并且在调用相应的Set设置函数修改某个参数时，直接修改实例的成员变量即可，无需担心与芯片内的设置不同步了；最后调用BMP280_Send_Refresh_Settings()将修改后的设置写入到芯片内。
+所以步骤有：
+	第一步：BMP280_Get_config_and_ctrlmeas_reg() - (附带同步；只使用BMP280_Set_Application_to()函数不需要知晓bmp280当前的真实配置)
+	第二步：BMP280_Set_XXX() - (除了BMP280_Set_Application_to()函数)
+	第三步：BMP280_Send_Refresh_Settings()
+（推荐)或者第二种方案：将BMP280_Get_config_and_ctrlmeas_reg()写在BMP280_Send_Refresh_Settings()的末尾；！！！这样每次调用BMP280_Send_Refresh_Settings()函数后都会自动同步一次；用户就不需要担心同步问题了；直接调用BMP280_Set_XXX()函数修改实例的成员变量即可；最后调用BMP280_Send_Refresh_Settings()将修改后的设置写入到芯片内；步骤有：
+	第一步：BMP280_Set_XXX() - (除了BMP280_Set_Application_to()函数)
+	第二步：BMP280_Send_Refresh_Settings() - (附带同步)
+*/
 
 /**
  * @brief 单独设置BMP280的温度过采样率
@@ -449,8 +195,8 @@ u8 BMP280_Get_ID_Check(BMP280_t *bmp280)
  * @brief 获取BMP280的测量状态
  * 
  * @param bmp280 BMP280_t结构体实例的指针
- * @param measuring 用于返回测量状态的指针，0表示未测量，非0表示正在测量...
- * @return u8 0：成功获取测量状态  1：读取失败
+ * @param measuring 用于返回测量状态的指针，0表示未测量(上次转换已经完成，现在暂时处于休眠)，非0表示正在测量...
+ * @return u8 0：成功获取测量状态  !0：读取失败
  */
 u8 BMP280_Get_STATUS_measuring(BMP280_t *bmp280, u8 *measuring)
 {
@@ -464,7 +210,7 @@ u8 BMP280_Get_STATUS_measuring(BMP280_t *bmp280, u8 *measuring)
  * 
  * @param bmp280 BMP280_t结构体实例的指针
  * @param im_update 用于返回校准数据状态的指针，0表示校准数据有效可以读校准寄存器了，非0表示校准数据无效或正在更新中...
- * @return u8 0：成功获取校准数据状态  1：读取失败
+ * @return u8 0：成功获取校准数据状态  !0：读取失败
  */
 u8 BMP280_Get_STATUS_im_update(BMP280_t *bmp280, u8 *im_update)
 {
@@ -502,18 +248,35 @@ u8 BMP280_Get_CalibParam(BMP280_t *bmp280)
 	bmp280->calib_param.dig_P9=(s16)( ( ((u16)a_data_u8[23])<<8 ) | a_data_u8[22] );
 	return 0;
 }
-
+/**
+ * @brief 读取BMP280的配置和控制寄存器，并将读取到的寄存器值保存到实例的config_copy和ctrl_meas_copy成员变量中，以便用户随时查看当前的设置参数；同时将这两个成员变量的值赋给config和ctrl_meas成员变量，以便用户直接修改这两个成员变量来设置新的参数，无需担心与芯片内的设置不同步了；
+ * 
+ * @param bmp280 
+ * @return u8 0：读取&&同步成功  1：读取&&同步失败
+ */
 u8 BMP280_Get_config_and_ctrlmeas_reg(BMP280_t *bmp280)
-{
+{/*读取频率远超ODR时，即使检查measuring位也不能保证每次读到的数据都是新数据，因为BMP280的measuring位表示“转换已完成”，但不会自动变为1，所以紧接着读的话并不会阻止你，会多次读到同一组数据。只有当你读取了新的数据并且measuring位被设置为1时，才可以保证你读到的是新数据；
+	QMC6309：有专用 DRDY 位（读 status 自动清零）
+	BMP280：只有 measuring 位（bit3），0它表示“转换已完成”，读取该状态位后不会自动清零，所以不会阻止你多次读到同一组数据。*/
 	u8 data[2]={0,0};
 	if(bmp280->iic_or_spi_Read_Len(bmp280->iic_SlaveAddr,BMP280_CTRLMEAS_REG,2,data)) return 1;
 	bmp280->ctrl_meas_copy = data[0];
 	bmp280->config_copy = data[1];
+	/*2026/3/10改进*/
+	bmp280->ctrl_meas = bmp280->ctrl_meas_copy;
+	bmp280->config = bmp280->config_copy;
 	return 0;
 }
-
+/**
+ * @brief 读取BMP280的气压和温度ADC值，会保存到实例结构体中的Pressure_ADC和Temperature_ADC成员变量中；得到的只是原始值，需要传给BMP280_Get_Temperature_ture_int32()和BMP280_Get_Pressure_ture_int32()函数进行补偿计算才能得到真正的温度和气压值；
+ * 
+ * @param bmp280 
+ * @return u8 0：读取成功  1：读取失败
+ */
 u8 BMP280_Get_PressureTemperature_ADC(BMP280_t *bmp280)
-{
+{/*读取频率远超ODR时，即使检查measuring位也不能保证每次读到的数据都是新数据，因为BMP280的measuring位表示“转换已完成”，但不会自动变为1，所以紧接着读的话并不会阻止你，会多次读到同一组数据。只有当你读取了新的数据并且measuring位被设置为1时，才可以保证你读到的是新数据；
+	QMC6309：有专用 DRDY 位（读 status 自动清零）
+	BMP280：只有 measuring 位（bit3），0它表示“转换已完成”，读取该状态位后不会自动清零，所以不会阻止你多次读到同一组数据。*/
 	u8 a_data_u8[6]={0,0,0,0,0,0};
 	if(bmp280->iic_or_spi_Read_Len(bmp280->iic_SlaveAddr,BMP280_PRESSURE_MSB_REG,6,a_data_u8)) return 1;
 	bmp280->Pressure_ADC =(s32)((((u32)(a_data_u8[0]))<<12)|(((u32)(a_data_u8[1]))<<4)|((u32)a_data_u8[2]>>4));/* 气压 */
@@ -521,6 +284,12 @@ u8 BMP280_Get_PressureTemperature_ADC(BMP280_t *bmp280)
 	return 0;
 }
 
+/**
+ * @brief 获取BMP280的补偿后温度值，手册最后面章节的整数的公式；精度为0.01度，输出值“5123”表示51.23度；函数内部会将计算得到的t_fine保存到实例结构体的calib_param成员变量中，以便后续计算气压时使用；注意：在调用这个函数之前必须先调用BMP280_Get_PressureTemperature_ADC()函数读取最新的ADC值并保存到实例结构体中，否则可能会得到错误的温度值；
+ * 
+ * @param bmp280 
+ * @return s32 返回补偿之后的温度值，精度为0.01度，输出值“5123”表示51.23度；可以是负数最低-40度；
+ */
 // Returns temperature in DegC, resolution is 0.01 DegC. Output value of “5123” equals 51.23 DegC.
 // t_fine carries fine temperature as global value
 s32 BMP280_Get_Temperature_ture_int32(BMP280_t *bmp280)
@@ -533,7 +302,12 @@ s32 BMP280_Get_Temperature_ture_int32(BMP280_t *bmp280)
 	bmp280->Temperature_ture = (bmp280->calib_param.t_fine * 5 + 128) >> 8;
 	return bmp280->Temperature_ture;
 }
-
+/**
+ * @brief 获取BMP280的补偿后气压值，手册最后面章节的整数的公式；精度为0.01 hPa，输出值“96386”表示963.86 hPa；函数内部会将计算得到的pressure保存到实例结构体的Pressure_ture成员变量中，以便后续使用；注意：在调用这个函数之前必须先调用BMP280_Get_PressureTemperature_ADC()函数读取最新的ADC值和t_fine并保存到实例结构体中，否则可能会得到错误的气压值；
+ * 
+ * @param bmp280 
+ * @return u32 返回补偿之后的气压值，精度为0.01 hPa，输出值“96386”表示963.86 hPa；
+ */
 // Returns pressure in Pa as unsigned 32 bit integer. Output value of “96386” equals 96386 Pa = 963.86 hPa
 u32 BMP280_Get_Pressure_ture_int32(BMP280_t *bmp280)
 {
@@ -565,6 +339,9 @@ u32 BMP280_Get_Pressure_ture_int32(BMP280_t *bmp280)
 
 /****************************************************************************************** */
 
+/**
+ * @brief 发送软复位命令给BMP280，复位后芯片会重新加载校准参数；注意：调用这个函数后需要等待一段时间(根据手册是2ms)让芯片完成复位和校准参数加载过程；在这段时间内如果调用其他函数可能会得到错误的结果；
+ */
 u8 BMP280_Send_SoftReset(BMP280_t *bmp280)
 {
 	u8 RESET_VALUE=BMP280_RESET_VALUE;
@@ -573,23 +350,30 @@ u8 BMP280_Send_SoftReset(BMP280_t *bmp280)
 }
 
 /**
- * @brief 刷新BMP280的设置参数，函数内部会先将工作模式设置为睡眠模式，等待传感器进入睡眠模式后再写入新的设置参数，最后读取设置参数并检查是否写入成功了，如果写入的设置参数与读取回来的不一致，返回6表示检查失败了
+ * @brief 刷新BMP280的设置参数；函数内部会先将工作模式设置为睡眠模式；等待传感器进入睡眠模式后再写入新的设置参数；最后读出器件寄存器实际的值，并保存到结构体XXX_copy成员变量中，并且也同步结构体的XXX_config成员变量，方便后续可以直接调用Set_XXX()函数用于修改该配置而不需要手动调用BMP280_Get_config_and_ctrlmeas_reg()来进行读取&&同步；
  * 
  * @param bmp280 
- * @return u8 0：设置参数刷新成功  1：写入睡眠模式失败  2：写入config寄存器失败  3：写入ctrl_meas寄存器失败
+ * @return u8 0：设置参数刷新成功  1：写入睡眠模式失败  2：写入config寄存器失败  3：写入ctrl_meas寄存器失败  4：读取真实的设置参数并同步到实例的4个成员变量失败了
  */
 u8 BMP280_Send_Refresh_Settings(BMP280_t *bmp280)
 {
 	u8 sleep_set=0x00;
+	//设置睡眠模式
 	if(bmp280->iic_or_spi_Write_Len(bmp280->iic_SlaveAddr,BMP280_CTRLMEAS_REG,1,&sleep_set)) return 1;//先将工作模式设置为睡眠模式，才能修改其他设置参数
 	//等待传感器进入睡眠模式
 	u8 measuring=1;
 	while(BMP280_Get_STATUS_measuring(bmp280, &measuring) != 0 || measuring != 0);//成功读取到measuring且measuring为0表示传感器已经进入睡眠模式，可以安全地修改设置参数了
 	//写入设置参数
-	if(bmp280->iic_or_spi_Write_Len(bmp280->iic_SlaveAddr,BMP280_CONFIG_REG,1,&bmp280->config)) return 2;
-	if(bmp280->iic_or_spi_Write_Len(bmp280->iic_SlaveAddr,BMP280_CTRLMEAS_REG,1,&bmp280->ctrl_meas)) return 3;
-	return 0;
+	u8 res=0;
+	if(bmp280->iic_or_spi_Write_Len(bmp280->iic_SlaveAddr,BMP280_CONFIG_REG,1,&bmp280->config)) res = 2;
+	if(bmp280->iic_or_spi_Write_Len(bmp280->iic_SlaveAddr,BMP280_CTRLMEAS_REG,1,&bmp280->ctrl_meas)) res = 3;
+/*2026/3/10改进*/	
+	//读取器件中真实的参数，并同步到结构体的4个成员变量中，以在应用层显示；
+	if(BMP280_Get_config_and_ctrlmeas_reg(bmp280)) res = 4;//将读取到的真实的设置参数同步到实例的成员变量中;同时函数会使ctrl_meas = ctrl_meas_copy与config = config_copy，所以check_temp[0]和check_temp[1]与bmp280->ctrl_meas和bmp280->config是一样的了
+	return res;
 }
+
+/****************************************************************************************** */
 
 u8 BMP280_Init(BMP280_t *bmp280, BMP280_Application_to_e application_to, u8 iic_slaveaddr, BMP280_IIC_or_SPI_LEN_p iic_read_len, BMP280_IIC_or_SPI_LEN_p iic_write_len, BMP280_IIC_or_SPI_HW_Init_p iic_or_spi_hw_init)
 {
@@ -606,14 +390,12 @@ u8 BMP280_Init(BMP280_t *bmp280, BMP280_Application_to_e application_to, u8 iic_
 
 	if(BMP280_Get_ID_Check(bmp280))
 		return 1;
-	else{
-		if(BMP280_Get_CalibParam(bmp280))
-			return 2;
-		if(BMP280_Set_Application_to(bmp280, application_to))
-			return 3;
-		if(BMP280_Send_Refresh_Settings(bmp280))
-			return 4;
-	}
+	if(BMP280_Get_CalibParam(bmp280))
+		return 2;
+	if(BMP280_Set_Application_to(bmp280, application_to))
+		return 3;
+	if(BMP280_Send_Refresh_Settings(bmp280))
+		return 4;
 	return 0;
 }
 

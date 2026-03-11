@@ -23,6 +23,8 @@ uint8_t earth_flag=0;//是否以全球缩略图的形式显示实时坐标 1:文
 /*bmp280*/
 BMP280_t bmp280={0};          // 全局 BMP280 实例
 float fake_sea_level_pressure = 103019.0f; // 相对标准大气压，单位是Pa
+/*qmc6309*/
+QMC6309_t qmc6309={0};
 
 
 /**
@@ -80,7 +82,6 @@ void key_task(void)
         printf("Long press detected!\r\n");
         earth_flag = (earth_flag == 0) ? 1 : 0; // 切换GPS显示模式
 		UI_GPS_display_earth();
-		// u8g2_SendBuffer(&u8g2);
     }
     else if(key_value == 'D')
     {
@@ -135,7 +136,6 @@ void task_proc(void)
 		second_cnt=0;
 		GPS_lwgps_parser_lwrb(&gps);
 		UI_GPS_display_earth();
-		// u8g2_SendBuffer(&u8g2);
     }
 	if(bmp280_cnt==200)
 	{
@@ -145,12 +145,12 @@ void task_proc(void)
 			BMP280_Get_Temperature_ture_int32(&bmp280);
 			BMP280_Get_Pressure_ture_int32(&bmp280);
 
-			//有符号整数int32_t转符号整数部分和小数部分
-			char temp_sign = (bmp280.Temperature_ture >= 0) ? '+' : '-';
-			uint32_t temp_labs = (bmp280.Temperature_ture >= 0) ? (uint32_t)(bmp280.Temperature_ture) : (uint32_t)(-bmp280.Temperature_ture);
-			uint16_t temp_int_part = temp_labs / 100;
-			uint16_t temp_frac_part = temp_labs % 100;
-			//浮点float转符号整数部分和小数部分
+		//有符号整数int32_t转符号整数部分和小数部分
+			// char temp_sign = (bmp280.Temperature_ture >= 0) ? '+' : '-';
+			// uint32_t temp_labs = (bmp280.Temperature_ture >= 0) ? (uint32_t)(bmp280.Temperature_ture) : (uint32_t)(-bmp280.Temperature_ture);
+			// uint16_t temp_int_part = temp_labs / 100;
+			// uint16_t temp_frac_part = temp_labs % 100;
+		//浮点float转符号整数部分和小数部分
 			float altitude = calculate_altitude(bmp280.Pressure_ture, fake_sea_level_pressure);
 			char altitude_sign = (altitude >= 0) ? '+' : '-';
 			float abs_var = fabsf(altitude);
@@ -158,17 +158,17 @@ void task_proc(void)
 			uint16_t altitude_int_part = temp / 10;//整数部分
 			uint16_t altitude_frac_part = temp % 10;//小数部分
 
-			//输出到串口
-			printf("BMP280 Read Success! Temperature: %c%u.%02u C, Pressure: %lu Pa, Altitude: %c%u.%01u m\r\n",
-					temp_sign,
-			    	temp_int_part,
-			    	temp_frac_part,
-			    	bmp280.Pressure_ture,
-			    	altitude_sign,
-			    	altitude_int_part,
-			    	altitude_frac_part
-			);
-			//显示在OLED上
+		//输出到串口
+			// printf("BMP280 Read Success! Temperature: %c%u.%02u C, Pressure: %lu Pa, Altitude: %c%u.%01u m\r\n",
+			// 		temp_sign,
+			//     	temp_int_part,
+			//     	temp_frac_part,
+			//     	bmp280.Pressure_ture,
+			//     	altitude_sign,
+			//     	altitude_int_part,
+			//     	altitude_frac_part
+			// );
+		//显示在OLED上
 			memset(u8g2_buf, 0, sizeof(u8g2_buf));
 			sprintf(u8g2_buf,"[R-H:%c%u.%01um]", altitude_sign, altitude_int_part, altitude_frac_part);//相对高度，最大相对高度65535m
 			u8g2_SetDrawColor(&u8g2,0);
@@ -178,6 +178,13 @@ void task_proc(void)
 			u8g2_SendBuffer(&u8g2);
 		}
 		else printf("BMP280 Read error!\r\n");
+
+		uint16_t error_code;
+		if((error_code = QMC6309_Get_Magnetic(&qmc6309)) == 0)
+		{
+			printf("qmc6309 -> x=%+d y=%+d z=%+d\r\n",qmc6309.x,qmc6309.y,qmc6309.z);
+		}
+		else printf("QMC6309 Read error! Error code: %d\r\n", error_code);
 	}
 }
 
@@ -197,12 +204,6 @@ int main(void)
     printf("USART1 initialized successfully!\r\n");
 /*按键初始化*/
     key_init();
-/*软件IIC初始化，搜索挂载的iic设备数*/
-	Delay_ms(100);//等待外设上电稳定,这一版软件，不等上电稳定，根本无法得到iic设备的ACK回应；bmp280-2ms；qmc6309-1ms;MAX30102-1ms
-    IIC_InitPins_or_ChangePins(RCC_APB2Periph_GPIOB,GPIOB,GPIO_Pin_6,RCC_APB2Periph_GPIOB,GPIOB,GPIO_Pin_7);   
-    IIC_Set_speed(10);
-    IIC_Search_all_devices_printf_example();
-    IIC_Set_speed(1);
 /*OLED显示初始化*/
     // OLED_Init();
     // oled_image_yanhui();
@@ -211,10 +212,41 @@ int main(void)
     // LCD_Clear(BLACK);
 /*LWGPS*/
 	GPS_init(&gps);               //初始化一个GPS所依赖的软硬件环境
-	/*执行到这里是DMA已经可以自动从uart4接收数据并自动拷贝到LWRB的环形缓冲区中*/
-	printf("GPS init success!\r\n");
+	printf("GPS initialized successfully!\r\n");/*执行到这里是DMA已经可以自动从uart4接收数据并自动拷贝到LWRB的环形缓冲区中*/
+/*软件IIC初始化，搜索挂载的iic设备数*/
+	Delay_ms(100);//等待外设上电稳定,这一版软件，不等上电稳定，根本无法得到iic设备的ACK回应；bmp280-2ms；qmc6309-1ms;MAX30102-1ms
+    IIC_InitPins_or_ChangePins(RCC_APB2Periph_GPIOB,GPIOB,GPIO_Pin_6,RCC_APB2Periph_GPIOB,GPIOB,GPIO_Pin_7);
+	printf("SW_IIC initialized successfully!\r\n");
+    IIC_Set_speed(10);
+    IIC_Search_all_devices_printf_example();
+    IIC_Set_speed(1);
+/*u8g2单色屏初始化*/
+	u8g2_oled_init(&u8g2);
+	printf("OLED_u8g2 initialized successfully!\r\n");
+	u8g2_oled_play_Animation(&u8g2);
+    
+	u8g2_SetFont(&u8g2,u8g2_font_courB08_tr);  //w=7  h=10
+	u8g2_SetFontPosTop(&u8g2);
+	u8g2_SetFontMode(&u8g2,0);  //显示字体的背景，不透明
+	u8g2_SetDrawColor(&u8g2,1);
+	u8g2_ClearDisplay(&u8g2);
+    
+    // u8g2_oled_draw_earth(&u8g2);
+
+	// u8g2_SendBuffer(&u8g2);
+/*bmp280*/
+	if(BMP280_Init(&bmp280,BMP280_HANDHELD_DEVICE_LOW_POWER,0x77,IIC_Read_Len,IIC_Write_Len,NULL))
+	{
+		printf("BMP280 initialized failed!\r\n");
+		while(1);
+	}
+	else
+	{
+
+		printf("BMP280 initialized successfully!\r\n");
+	}
 /*qmc6309*/
-	wmm_init();
+	wmm_init();//磁偏角库初始化
 	// if(gps.lwgps_handle.is_valid)
 	// {
 	// 	float Date_WMM = wmm_get_date(gps.lwgps_handle.year % 100, gps.lwgps_handle.month, gps.lwgps_handle.date);
@@ -228,30 +260,17 @@ int main(void)
 	// else{//使用主控内部RTC日期
 
 	// }
-/*bmp280*/
-	if(BMP280_Init(&bmp280,BMP280_HANDHELD_DEVICE_LOW_POWER,0x77,IIC_Read_Len,IIC_Write_Len,NULL))
+	uint16_t error_code;
+	if((error_code = QMC6309_Init(&qmc6309, IIC_Read_Len, IIC_Write_Len, NULL)))//自测试会延时共170ms
 	{
-		printf("BMP280 init failed!\r\n");
+		printf("QMC6309 initialized failed! error code: %d\r\n", error_code);
 		while(1);
 	}
 	else
 	{
 
-		printf("BMP280 init success!\r\n");
+		printf("QMC6309 initialized successfully!\r\n");
 	}
-/*u8g2单色屏初始化*/
-	u8g2_oled_init(&u8g2);
-	u8g2_oled_play_Animation(&u8g2);
-    
-	u8g2_SetFont(&u8g2,u8g2_font_courB08_tr);  //w=7  h=10
-	u8g2_SetFontPosTop(&u8g2);
-	u8g2_SetFontMode(&u8g2,0);  //显示字体的背景，不透明
-	u8g2_SetDrawColor(&u8g2,1);
-	u8g2_ClearDisplay(&u8g2);
-    
-    // u8g2_oled_draw_earth(&u8g2);
-
-	// u8g2_SendBuffer(&u8g2);
 /*定时器6初始化，周期1ms，用于任务调度*/    
     timer6_init();
     for(;;)

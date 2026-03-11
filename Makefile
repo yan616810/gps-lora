@@ -113,6 +113,7 @@ CSRC =	\
 		board_hardware/bmp280.c \
 		lib/WMM_Tiny/Core/Src/wmm.c \
 		lib/WMM_Tiny/Core/Src/WMM_COF.c \
+		board_hardware/qmc6309.c \
 		UI/UI_GPS.c \
 # 		lib/mpu6050/mpu6050.c \
 # 		lib/mpu6050/inv_mpu_dmp_motion_driver.c \
