@@ -12,18 +12,20 @@
 #include "qmc6309.h"
 #include <string.h>
 #include "iic.h"
-
-#include <stdio.h> //printf
-#include "Delay.h"
+#include <math.h>
+#include <stdio.h> //printf调试用
+#include "Delay.h" //调试用
 
 //判断变量val是否在区间[low,high]中；  0：不在该区间  1：在该区间
 #define IS_IN_RANGE(val, low, high)  (((val) >= (low)) && ((val) <= (high)))
+#define R2D 57.29577951308232088f /*!< Radians to degrees */
 
+static float default_reference_heading = 90.0f; //默认参考航向，单位是度，正东为0度，逆时针增加；可根据实际安装方向调整这个值，以使得校准后的航向值符合实际的地理方位
 
 /**
  * @brief 设置低通滤波器的深度
  * 
- * @param qmc6309 
+ * @param qmc6309 QMC6309_t实例的指针
  * @param OSR2_xxx QMC6309_Low_Pass_Filter_e:
  *                     OSR2_x1 = 0,   //000 - 最小滤波深度，带宽和噪声大；功耗低；
  *                     OSR2_x2 = 1,   //001
@@ -41,7 +43,7 @@ uint8_t QMC6309_Set_CTRL1_LPF(QMC6309_t *qmc6309, QMC6309_Low_Pass_Filter_e OSR2
 /**
  * @brief 设置过采样率
  * 
- * @param qmc6309 
+ * @param qmc6309 QMC6309_t实例的指针
  * @param OSR1_xxx QMC6309_Over_Sample_Ratio_e:
  *                     OSR1_x8 = 0,   //00 - 带宽和噪声小；功耗高；
  *                     OSR1_x4 = 1,   //01
@@ -58,7 +60,7 @@ uint8_t QMC6309_Set_CTRL1_Over_Sample_Ratio(QMC6309_t *qmc6309, QMC6309_Over_Sam
 /**
  * @brief 设置工作模式
  * 
- * @param qmc6309 
+ * @param qmc6309 QMC6309_t实例的指针
  * @param Mode QMC6309_Mode_Control_e:
  *                     Suspend_Mode    = 0,   //00 - 关闭模式
  *                     Normal_Mode     = 1,   //01 - 正常测量模式 - 可调数据输出速率
@@ -75,7 +77,7 @@ uint8_t QMC6309_Set_CTRL1_Mode_Control(QMC6309_t *qmc6309, QMC6309_Mode_Control_
 /**
  * @brief 设置输出数据速率
  * 
- * @param qmc6309 
+ * @param qmc6309 QMC6309_t实例的指针
  * @param ODR_xxxHZ QMC6309_Output_data_Rate_e:
  *                     ODR_100HZ = 0,   //000 - 100Hz
  *                     ODR_200HZ = 1,   //001 - 200Hz
@@ -92,7 +94,7 @@ uint8_t QMC6309_Set_CTRL2_ODR(QMC6309_t *qmc6309, QMC6309_Output_data_Rate_e ODR
 /**
  * @brief 设置满量程范围
  * 
- * @param qmc6309 
+ * @param qmc6309 QMC6309_t实例的指针
  * @param RNG_xxxGuass QMC6309_Full_Scale_Range_e:
  *                     RNG_32Guass =0,   //00 or 11 - 大量程，精度小[-32,32]Gauss
  *                     RNG_16Guass =1,   //01 - 中量程，精度中[-16,16]Gauss
@@ -108,7 +110,7 @@ uint8_t QMC6309_Set_CTRL2_Full_Scale_Range(QMC6309_t *qmc6309, QMC6309_Full_Scal
 /**
  * @brief 是否开启Set/Reset技术，开启后可修正漂移，精度更高；
  * 
- * @param qmc6309 
+ * @param qmc6309 QMC6309_t实例的指针
  * @param on_off QMC6309_Set_and_reset_mode_control_e：
  *                                      Set_and_reset_on  = 0,   //00 - (首选)高精度，可修正漂移
  *                                      Set_only_on       = 1,   //01
@@ -125,11 +127,12 @@ uint8_t QMC6309_Set_CTRL2_Set_and_reset_mode_control(QMC6309_t *qmc6309, QMC6309
 
 /*************************************************************************************************** */
 
-/**
- * @brief 读取芯片ID,检查QMC6309是否存在
- * 
- * @return u8 0：芯片存在且正常  1：实例指针无效或函数指针未赋值  2：无法读取数据  3：读取成功但芯片ID不匹配
- */
+ /**
+  * @brief 读取芯片ID,检查QMC6309是否存在
+  * 
+  * @param qmc6309 QMC6309_t实例的指针
+  * @return uint8_t 0：芯片存在且正常  1：实例指针无效或函数指针未赋值  2：无法读取数据  3：读取成功但芯片ID不匹配
+  */
 uint8_t QMC6309_Get_ID_Check(QMC6309_t *qmc6309)
 {
 	uint8_t chip_id,res,error_flag;
@@ -151,7 +154,7 @@ uint8_t QMC6309_Get_ID_Check(QMC6309_t *qmc6309)
 /**
  * @brief DRDY 位表示数据的状态，当三个轴的数据都准备好并加载到每个模式下的输出数据寄存器中时该位会被置位。通过 I2C 命令读取状态寄存器可将其重置为“0”。
  * 
- * @param qmc6309 
+ * @param qmc6309 QMC6309_t实例的指针
  * @param DRDY 返回该状态位 0：没有新数据  1：有新数据准备就绪
  * @return uint8_t 0：读取成功  1：读取失败
  */
@@ -165,7 +168,7 @@ uint8_t QMC6309_Get_STATUS_DRDY(QMC6309_t *qmc6309, u8 *DRDY)
 /**
  * @brief 表示内置自测试测量的状态
  * 
- * @param qmc6309 
+ * @param qmc6309 QMC6309_t实例的指针
  * @param ST_RDY 返回该状态位 0：自测试未完成  1：自测试已完成，数据已准备好可供读取
  * @return uint8_t 0：读取成功  1：读取失败
  */
@@ -179,7 +182,7 @@ uint8_t QMC6309_Get_STATUS_ST_RDY(QMC6309_t *qmc6309, u8 *ST_RDY)
 /**(貌似使用不到？)
  * @brief 表示任一轴的输出超出[-32000，32000]最低有效位的范围时置为高电平；并在读取状态寄存器后重置为“0”。
  * 
- * @param qmc6309 
+ * @param qmc6309 QMC6309_t实例的指针
  * @param OVFL 返回该状态位 0：没有数据溢出  1：发生数据溢出
  * @return uint8_t 0：读取成功  1：读取失败
  */
@@ -193,7 +196,7 @@ uint8_t QMC6309_Get_STATUS_OVFL(QMC6309_t *qmc6309, u8 *OVFL)
 /**
  * @brief 读取QMC6309的控制寄存器1和控制寄存器2的值，保存到实例的成员变量中，方便用户随时查看当前的设置参数；注意：用户更改qmc6309的控制寄存器设置各种高级参数时，先修改实例的QMC6309_CTRL_1_REG_config和QMC6309_CTRL_2_REG_config这两个成员的值，最后调用QMC6309_Send_Refresh_Settings函数统一将设置真正的写入到寄存器；
  * 
- * @param qmc6309 
+ * @param qmc6309 QMC6309_t实例的指针
  * @return uint8_t 0：读取成功  1：读取失败
  */
 uint8_t QMC6309_Get_CTRL_1_and_CTRL_2_reg(QMC6309_t *qmc6309)
@@ -207,9 +210,9 @@ uint8_t QMC6309_Get_CTRL_1_and_CTRL_2_reg(QMC6309_t *qmc6309)
 	return 0;
 }
 /**
- * @brief 读取3轴磁力数据
+ * @brief 读取3轴磁力计原始数据
  * 
- * @param qmc6309 
+ * @param qmc6309 QMC6309_t实例的指针
  * @return uint8_t 0：读取成功  1：没有新数据可读(比bmp280有更好的防重复读机制)  2：读取数据失败
  */
 uint8_t QMC6309_Get_Magnetic(QMC6309_t *qmc6309)
@@ -224,13 +227,93 @@ uint8_t QMC6309_Get_Magnetic(QMC6309_t *qmc6309)
     qmc6309->z = (int16_t)(( (uint16_t)data[5] << 8) | data[4]);
     return 0;
 }
+/**
+ * @brief 不重新读原始数据，直接对已有的qmc6309->x/y/z中的数据进行校准，校准后存到qmc6309->x_calib/y_calib/z_calib；
+ * 
+ * @param qmc6309 QMC6309_t实例的指针
+ */
+void QMC6309_CalibMagnetic(QMC6309_t *qmc6309)
+{
+    // //static const float Hard_Iron_Offset[3] = {124.9080, 611.3524, -167.6648};//存在.rodata段，后续不可修改且每次都会读取
+/*使用python校准时使用*/
+    /*椭球校准后，使用下面代码，再进行焊接倾斜校准 + 绕Z轴旋转校准*/
+    // static float Hard_Iron_Offset[3] = {127.4923, 592.6312, -164.1667};//存在.data段，每次都在sram中读取，并且可以进行修改；但是复位后修改的值不会被保存...
+    // static float Soft_Iron_Scale[3] = {1.186597, 1.209756, 1.189284};//推荐使用最慢转动时采集的数据来进行校准
+    // qmc6309->x = (qmc6309->x - Hard_Iron_Offset[0]) * Soft_Iron_Scale[0];
+    // qmc6309->y = (qmc6309->y - Hard_Iron_Offset[1]) * Soft_Iron_Scale[1];
+    // qmc6309->z = (qmc6309->z - Hard_Iron_Offset[2]) * Soft_Iron_Scale[2];
 
+/*校准矩阵得到后*/
+    static float Hard_Iron_Offset[3] = {127.4923f, 592.6312f, -164.1667f};//存在.data段，每次都在sram中读取，并且可以进行修改；但是复位后修改的值不会被保存...
+    /*绕Z轴旋转校准矩阵 * 焊接倾斜校准矩阵 * 简易软铁校准矩阵 = 总校准矩阵 (校正后默认Z轴数值不变，Y轴正方向指向水平磁场方向)*/ 
+    static float total_calibration_matrix[3][3] = { 
+        {-1.18530005f , 0.03517608f ,-0.04353255f}, 
+        {-0.03906277f ,-1.20186355f , 0.12985792f},
+        {-0.03938315f , 0.13340584f , 1.18137169f}
+    };
+
+    // /*整数化:Q10 整数化只在矩阵需要反复高频调用（比如 IMU 姿态解算 > 1kHz）时才有意义，磁力计这种场景纯属过度优化。*/
+    // static int16_t Hard_Iron_Offset[3] = {127, 593, -164};
+    // static int16_t total_calibration_matrix[3][3] = { 
+    //     {-1214,   36,  -45},/* 总校准矩阵 × 1024（Q10 定点数格式） */
+    //     {  -40, -1231,  133},
+    //     {  -40,   137, 1210}
+    // };
+
+    /*硬铁偏移校准*/
+    float cx = (qmc6309->x - Hard_Iron_Offset[0]);
+    float cy = (qmc6309->y - Hard_Iron_Offset[1]);
+    float cz = (qmc6309->z - Hard_Iron_Offset[2]);
+    /*椭球拟合校准 + 焊接倾斜校准 + 绕Z轴旋转校准 */
+    qmc6309->x_calib = total_calibration_matrix[0][0] * cx + total_calibration_matrix[0][1] * cy + total_calibration_matrix[0][2] * cz;
+    qmc6309->y_calib = total_calibration_matrix[1][0] * cx + total_calibration_matrix[1][1] * cy + total_calibration_matrix[1][2] * cz;
+    qmc6309->z_calib = total_calibration_matrix[2][0] * cx + total_calibration_matrix[2][1] * cy + total_calibration_matrix[2][2] * cz;
+}
+/**
+ * @brief 读取新的3轴磁力计原始数据存到qmc6309->x/y/z && 校准刚读取到的3轴原始数据，将校准后的3轴磁力数据存到qmc6309->x_calib/y_calib/z_calib；
+ * 
+ * @param qmc6309 QMC6309_t实例的指针
+ * @return uint8_t 0：读取并且校准成功  1：没有新数据可读(比bmp280有更好的防重复读机制)  2：读取数据失败
+ */
+uint8_t QMC6309_Get_Magnetic_And_CalibMagnetic(QMC6309_t *qmc6309)
+{
+    uint8_t res=0;
+    if((res = QMC6309_Get_Magnetic(qmc6309)) != 0) return res;
+    QMC6309_CalibMagnetic(qmc6309);
+    return res;
+}
+
+/**
+ * @brief 得到以地理北为0度顺时针度数增大的航向角；直接使用校准后的磁力数据qmc6309->x_calib/y_calib计算航向角；默认default_reference_heading=90度,将x,y=(0,1)指的方向也就是Y轴正方向，当作正北即航向角输出0度；
+ * 
+ * @param qmc6309 QMC6309_t实例的指针
+ * @return int16_t 输出的航向角，单位是度，范围是[0,359]，0度对应正北（y轴正方向），顺时针为正；可以调用函数来修改0度所对应的方向，用于用户校准方向；
+ */
+int16_t QMC6309_Get_heading(QMC6309_t *qmc6309) 
+{
+    //注意：地磁场方向不变，我顺时针转动pcb，相当于地磁场逆时针在我的pcb坐标系中旋转，方向正好相反，所以输出的是pcb逆时针转动时航向角增加！！！改正方法：将下面的qmc6309->x_calib改为相反数-qmc6309->x_calib即可；二者X轴坐标镜像
+    float angle_deg = atan2f((float)qmc6309->y_calib, (float)-qmc6309->x_calib) * R2D; // atan2f返回值范围是[-PI,PI]的float类型；之后转换成角度，0度对应正X轴，逆时针为正；
+    int16_t heading = (int16_t)( (default_reference_heading+qmc6309->Magnetic_variation) - angle_deg);//Magnetic_variation负为磁北西偏；磁偏角数据有效时，校正后位于地球上不同位置时，航向角0度始终指向地理正北；
+    qmc6309->heading = ((heading % 360) + 360) % 360;// 保证 [0, 359]
+    return qmc6309->heading;
+}
+/**
+ * @brief 改变QMC6309_Get_heading函数输出的参考位置；具体操作：设备转到某一个位置时，想让该位置当做0度的北向,即可在此位置调用一下这个函数；之后QMC6309_Get_heading函数输出的航向值就是以该位置为0度的了；
+ * 
+ * @param qmc6309 QMC6309_t实例的指针
+ */
+void QMC6309_Change_default_reference_heading(QMC6309_t *qmc6309)
+{
+    /*将当前得到的校准值qmc6309->x_calib/y_calib代入atan2f，可以算出水平磁场的方位角度(-180,+180]；
+    将该方位赋给default_reference_heading后，以后调用QMC6309_Get_heading可以得到以该方向为0度的航向值！*/
+    default_reference_heading = atan2f((float)qmc6309->y_calib, (float)qmc6309->x_calib) * R2D; // atan2f返回值范围是[-PI,PI]的float类型；
+}
 /*************************************************************************************************** */
 
 /**
  * @brief 将所有寄存器重置为初始值；软件复位可以在任何模式的任意时间触发。设置为高电平后，SOFT_RST位不会自动清除。因此，在执行软件复位命令0BH=80后，总是需要执行另一个命令0BH=00，不需要等待任何标志位；
  * 
- * @param qmc6309 
+ * @param qmc6309 QMC6309_t实例的指针
  * @return uint8_t 0：成功复位  1：向SOFT_RST位写1失败  2：向SOFT_RST位写0失败
  */
 uint8_t QMC6309_Send_SoftReset(QMC6309_t *qmc6309)
@@ -244,7 +327,7 @@ uint8_t QMC6309_Send_SoftReset(QMC6309_t *qmc6309)
 /**
  * @brief 设置为连续模式进行3轴自检
  * 
- * @param qmc6309 
+ * @param qmc6309 QMC6309_t实例的指针
  * @return uint8_t 0：自检成功  1：设置挂起模式失败  2：设置连续模式失败  (x：轮询DRDY一直是0,表示连续模式一直不输出新数据)  3：设置自检使能位失败  4：轮询ST_RDY一直为0,表示自检一直处于未完成  5：读取自检数据失败    6：自检数据不在合理范围内
  */
 uint8_t QMC6309_Self_test(QMC6309_t *qmc6309)
@@ -287,7 +370,7 @@ uint8_t QMC6309_Self_test(QMC6309_t *qmc6309)
 /**
  * @brief 将结构体成员XXX_config预配置，真正的写入到器件寄存器中；函数内部会先将工作模式设置为挂起模式模式；无须等待直接写入所有的新的设置参数；最后读出器件寄存器实际的值，并保存到结构体XXX_copy成员变量中，并且也同步结构体的XXX_config成员变量，方便后续可以直接调用Set_XXX()函数用于修改该配置而不需要手动调用QMC6309_Get_CTRL_1_and_CTRL_2_reg()来进行读取&&同步；
  * 
- * @param qmc6309 
+ * @param qmc6309 QMC6309_t实例的指针
  * @return uint8_t 0:设置成功  1：设置挂起模式失败  2：写入设置参数到CTRL_2寄存器失败  3：写入设置参数到CTRL_1寄存器失败  4：读取器件寄存器实际的值&&同步失败
  */
 uint8_t QMC6309_Send_Refresh_Settings(QMC6309_t *qmc6309)
@@ -310,7 +393,7 @@ uint8_t QMC6309_Send_Refresh_Settings(QMC6309_t *qmc6309)
 /**
  * @brief 初始化QMC6309传感器
  * 
- * @param qmc6309 
+ * @param qmc6309 QMC6309_t实例的指针
  * @param iic_Read_Len 和qmc6309通信时读取数据的函数指针，参数分别是：iic从机地址，寄存器地址，要读写的字节数，数据缓冲区指针；函数返回值：0：操作成功  1：操作失败
  * @param iic_Write_Len 和qmc6309通信时写入数据的函数指针，参数分别是：iic从机地址，寄存器地址，要读写的字节数，数据缓冲区指针；函数返回值：0：操作成功  1：操作失败
  * @param iic_HW_Init IIC硬件接口初始化函数指针，参数为void，返回值为void；如果不需要初始化IIC硬件接口或之前已初始化，可以直接传入NULL
@@ -330,8 +413,6 @@ uint8_t QMC6309_Init(QMC6309_t *qmc6309, QMC6309_IIC_RW_LEN_p iic_Read_Len, QMC6
     if(QMC6309_Get_ID_Check(qmc6309) != 0)
         return 1;//芯片ID检查失败，可能芯片不存在或通信异常
 /*继续执行其他初始化步骤，例如配置控制寄存器等*/
-    // if(QMC6309_Self_test(qmc6309) != 0)//自测
-        // return 2;
     for(uint8_t i=0; i<5; i++)//自测容易出问题导致自测失败；最多尝试5次；
     {
         if(QMC6309_Self_test(qmc6309) == 0) 
@@ -343,7 +424,7 @@ uint8_t QMC6309_Init(QMC6309_t *qmc6309, QMC6309_IIC_RW_LEN_p iic_Read_Len, QMC6
         }
     }
     if(
-       QMC6309_Set_CTRL1_LPF(qmc6309, OSR2_x8)                                != 0 ||  // x16（最大滤波，航向最稳）
+       QMC6309_Set_CTRL1_LPF(qmc6309, OSR2_x16)                                != 0 ||  // x16（最大滤波，航向最稳）
        QMC6309_Set_CTRL1_Over_Sample_Ratio(qmc6309, OSR1_x8)                   != 0 ||  // x8（已知最低噪声 场分辨率可达典型的2.5mG）
        QMC6309_Set_CTRL1_Mode_Control(qmc6309, Normal_Mode)                    != 0 ||  //ODR 只设了 50Hz（人转动/走路几 Hz 就够），Normal Mode 完全够用且更省电。
        QMC6309_Set_CTRL2_ODR(qmc6309, ODR_50HZ)                                != 0 ||  //人转动/走路几Hz就够；50Hz已足够平滑，且功耗更低、噪声更易滤除。100Hz也完全可用（如果你需要更快响应，如手持快速转动）

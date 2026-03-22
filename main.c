@@ -14,6 +14,8 @@
 volatile uint8_t key_cnt=10;
 volatile uint16_t second_cnt=500;
 volatile uint8_t bmp280_cnt=200;//bmp280读取计数器，达到一定值后读取一次bmp280数据
+volatile uint8_t qmc6309_cnt=20;//qmc6309读取计数器，达到一定值后读取一次qmc6309数据
+
 /*u8g2*/
 u8g2_t u8g2;
 char u8g2_buf[20];
@@ -68,6 +70,7 @@ void TIM6_IRQHandler (void)
         if(key_cnt<10)key_cnt++;
         if(second_cnt<500)second_cnt++;
 		if(bmp280_cnt<200)bmp280_cnt++;
+		if(qmc6309_cnt<20)qmc6309_cnt++;
         TIM_ClearITPendingBit(TIM6, TIM_IT_Update);
     }
 }
@@ -179,10 +182,22 @@ void task_proc(void)
 		}
 		else printf("BMP280 Read error!\r\n");
 
+		// uint16_t error_code;
+		// if((error_code = QMC6309_Get_Magnetic(&qmc6309)) == 0)
+		// {
+		// 	printf("qmc6309 -> x=%+d y=%+d z=%+d\r\n",qmc6309.x,qmc6309.y,qmc6309.z);
+		// }
+		// else printf("QMC6309 Read error! Error code: %d\r\n", error_code);
+	}
+	if(qmc6309_cnt==20)
+	{
+		qmc6309_cnt=0;
 		uint16_t error_code;
 		if((error_code = QMC6309_Get_Magnetic(&qmc6309)) == 0)
 		{
-			printf("qmc6309 -> x=%+d y=%+d z=%+d\r\n",qmc6309.x,qmc6309.y,qmc6309.z);
+			QMC6309_CalibMagnetic(&qmc6309);
+			QMC6309_Get_heading(&qmc6309);
+			printf("qmc6309 -> x=%+d y=%+d z=%+d  heading: %d\r\n",qmc6309.x, qmc6309.y, qmc6309.z, qmc6309.heading);
 		}
 		else printf("QMC6309 Read error! Error code: %d\r\n", error_code);
 	}

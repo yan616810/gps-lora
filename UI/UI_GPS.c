@@ -60,6 +60,7 @@ void UI_GPS_display_earth(void)
 			float Date_WMM = wmm_get_date(gps.lwgps_handle.year % 100, gps.lwgps_handle.month, gps.lwgps_handle.date);
 			float Magnetic_variation;
 			E0000(gps.lwgps_handle.latitude, gps.lwgps_handle.longitude, Date_WMM, &Magnetic_variation);//磁偏角结果是正值表示东偏，负值表示西偏，单位是度；输出浮点数
+			qmc6309.Magnetic_variation = Magnetic_variation;//将磁偏角传给qmc6309实例使用；用于使航向校正为地理正北；
 		    //显示磁偏角，四舍五入保留三位小数，检验能否正常将-0.9567度显示为-0.957度
 			var_sign  = (Magnetic_variation >= 0.0f) ? '+' : '-';  //符号部分，正值表示东偏，负值表示西偏
 			abs_var   = fabsf(Magnetic_variation);                 //计算float类型的绝对值

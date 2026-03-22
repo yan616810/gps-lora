@@ -87,6 +87,11 @@ typedef struct qmc6309
     int16_t x;
     int16_t y;
     int16_t z;
+    int16_t x_calib;
+    int16_t y_calib;
+    int16_t z_calib;
+    int16_t heading;  //航向[0,359]度
+    float Magnetic_variation;
     QMC6309_IIC_RW_LEN_p iic_Read_Len;
     QMC6309_IIC_RW_LEN_p iic_Write_Len;
     QMC6309_IIC_HW_Init_p iic_HW_Init;
@@ -106,6 +111,10 @@ uint8_t QMC6309_Get_STATUS_ST_RDY(QMC6309_t *qmc6309, u8 *ST_RDY);
 uint8_t QMC6309_Get_STATUS_OVFL(QMC6309_t *qmc6309, u8 *OVFL);
 uint8_t QMC6309_Get_CTRL_1_and_CTRL_2_reg(QMC6309_t *qmc6309);
 uint8_t QMC6309_Get_Magnetic(QMC6309_t *qmc6309);
+void QMC6309_CalibMagnetic(QMC6309_t *qmc6309);
+uint8_t QMC6309_Get_Magnetic_And_CalibMagnetic(QMC6309_t *qmc6309);
+int16_t QMC6309_Get_heading(QMC6309_t *qmc6309);
+void QMC6309_Change_default_reference_heading(QMC6309_t *qmc6309);
 
 uint8_t QMC6309_Send_SoftReset(QMC6309_t *qmc6309);
 uint8_t QMC6309_Self_test(QMC6309_t *qmc6309);
