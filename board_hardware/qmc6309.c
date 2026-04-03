@@ -410,6 +410,9 @@ uint8_t QMC6309_Init(QMC6309_t *qmc6309, QMC6309_IIC_RW_LEN_p iic_Read_Len, QMC6
     if(qmc6309->iic_HW_Init != NULL)
         qmc6309->iic_HW_Init(); // 初始化IIC硬件接口
 
+    QMC6309_Send_SoftReset(qmc6309);
+    Delay_ms(10);
+
     if(QMC6309_Get_ID_Check(qmc6309) != 0)
         return 1;//芯片ID检查失败，可能芯片不存在或通信异常
 /*继续执行其他初始化步骤，例如配置控制寄存器等*/

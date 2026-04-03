@@ -5,4 +5,6 @@ extern unsigned char key_value;
 void get_key(void);
 void key_init(void);
 
+void key_task(void);
+
 #endif

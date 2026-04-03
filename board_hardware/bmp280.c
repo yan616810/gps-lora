@@ -2,6 +2,7 @@
 #include "iic.h"
 #include <string.h>
 #include <math.h>
+#include "Delay.h"
 /*
 1.连接BMP280时，如果连接的是模块&从设备地址是0x76，SDO地址位可不用接地(其模块内部已经接地)。
 2.CSB接3.3V选择IIC接口协议。
@@ -387,6 +388,9 @@ u8 BMP280_Init(BMP280_t *bmp280, BMP280_Application_to_e application_to, u8 iic_
     if (bmp280->iic_or_spi_HW_Init != NULL) {
         bmp280->iic_or_spi_HW_Init();// 调用IIC或SPI硬件接口初始化函数
     }
+
+	BMP280_Send_SoftReset(bmp280);
+	Delay_ms(2);
 
 	if(BMP280_Get_ID_Check(bmp280))
 		return 1;

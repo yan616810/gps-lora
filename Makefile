@@ -115,6 +115,7 @@ CSRC =	\
 		lib/WMM_Tiny/Core/Src/WMM_COF.c \
 		board_hardware/qmc6309.c \
 		UI/UI_GPS.c \
+		sys_hardware/RTC.c \
 # 		lib/mpu6050/mpu6050.c \
 # 		lib/mpu6050/inv_mpu_dmp_motion_driver.c \
 # 		lib/mpu6050/inv_mpu.c \

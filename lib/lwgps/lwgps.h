@@ -111,7 +111,11 @@ typedef struct {
 
 #if LWGPS_CFG_STATEMENT_GPGSV || __DOXYGEN__
     /* Information related to GPGSV statement */
-    uint8_t sats_in_view; /*!< Number of satellites in view */
+    // uint8_t sats_in_view; /*!< Number of satellites in view */
+    uint8_t sats_in_view;           /*!< Number of satellites in view from last GSV (original) */
+    uint8_t  gsv_talker_id[2];       /* (新增) 保存当前GSV的星座标识，如'G','P' */
+    uint8_t  gsv_constellation_mask; /* (新增) 本帧已统计过的星座位掩码，防止重复累加 bit 0 = GPS, bit 1 = GLONASS, bit 2 = Galileo, bit 3 = BeiDou, bit 4 = QZSS, bit 5 = IRNSS*/
+    uint16_t sats_in_view_total;     /*!< (新增) Total number of satellites in view from ALL constellations  */
 #if LWGPS_CFG_STATEMENT_GPGSV_SAT_DET || __DOXYGEN__
     lwgps_sat_t sats_in_view_desc[12];
 #endif /* LWGPS_CFG_STATEMENT_GPGSV_SAT_DET || __DOXYGEN__ */

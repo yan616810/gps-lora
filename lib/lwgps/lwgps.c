@@ -146,6 +146,21 @@ prv_parse_lat_long(lwgps_t* gh) {
     return ll;
 }
 
+/*判断有没有累积过该星座的卫星数；bit 0 = GPS, bit 1 = GLONASS, bit 2 = Galileo, bit 3 = BeiDou, bit 4 = QZSS, bit 5 = IRNSS*/
+static uint8_t
+prv_gsv_get_constellation_bit(const uint8_t id) {
+    /* id 传入 term_str[2]，即第二个字母 */
+    switch (id) {
+        case 'P': return (1 << 0); /* GPS     */
+        case 'L': return (1 << 1); /* GLONASS */
+        case 'A': return (1 << 2); /* Galileo */
+        case 'B': return (1 << 3); /* BeiDou  */
+        case 'Q': return (1 << 4); /* QZSS    */
+        case 'I': return (1 << 5); /* NavIC   */
+        default:  return 0;
+    }
+}
+
 /**
  * \brief           Parse received term
  * \param[in]       gh: GPS handle
@@ -164,8 +179,10 @@ prv_parse_term(lwgps_t* gh) {
             gh->p.stat = STAT_GSA;
 #endif /* LWGPS_CFG_STATEMENT_GPGSA */
 #if LWGPS_CFG_STATEMENT_GPGSV
-        } else if (!strncmp(gh->p.term_str, "$GPGSV", 6) || !strncmp(gh->p.term_str, "$GNGSV", 6)) {
+        } else if (!strncmp(gh->p.term_str, "$GPGSV", 6) || !strncmp(gh->p.term_str, "$GNGSV", 6) || !strncmp(&gh->p.term_str[3], "GSV", 3)) {
             gh->p.stat = STAT_GSV;
+            gh->gsv_talker_id[0] = gh->p.term_str[1]; /* 如'G' */
+            gh->gsv_talker_id[1] = gh->p.term_str[2]; /* 如 'P'/'L'/'A'/'B'/'Q'/'I' */
 #endif /* LWGPS_CFG_STATEMENT_GPGSV */
 #if LWGPS_CFG_STATEMENT_GPRMC
         } else if (!strncmp(gh->p.term_str, "$GPRMC", 6) || !strncmp(gh->p.term_str, "$GNRMC", 6)) {
@@ -187,6 +204,12 @@ prv_parse_term(lwgps_t* gh) {
     } else if (gh->p.stat == STAT_GGA) { /* Process GPGGA statement */
         switch (gh->p.term_num) {
             case 1: /* Process UTC time */
+                /* ====================== 新增代码 ====================== */
+                /* 每当成功解析一条 GGA 语句时，认为新的一帧数据开始，对于我的模块就是1s输出一帧 */
+                /* 重置多星座可见卫星总数，准备接收后续的各种 GSV 语句 */
+                gh->sats_in_view_total = 0;
+                gh->gsv_constellation_mask = 0;//表示一个星座的GSV报文都没解析bit 0 = GPS, bit 1 = GLONASS, bit 2 = Galileo, bit 3 = BeiDou, bit 4 = QZSS, bit 5 = IRNSS
+                /* ===================================================== */
                 gh->p.data.gga.hours = 10 * CTN(gh->p.term_str[0]) + CTN(gh->p.term_str[1]);
                 gh->p.data.gga.minutes = 10 * CTN(gh->p.term_str[2]) + CTN(gh->p.term_str[3]);
                 gh->p.data.gga.seconds = 10 * CTN(gh->p.term_str[4]) + CTN(gh->p.term_str[5]);
@@ -230,13 +253,29 @@ prv_parse_term(lwgps_t* gh) {
         }
 #endif /* LWGPS_CFG_STATEMENT_GPGSA */
 #if LWGPS_CFG_STATEMENT_GPGSV
-    } else if (gh->p.stat == STAT_GSV) { /* Process GPGSV statement */
+    } else if (gh->p.stat == STAT_GSV) { /* Process GPGSV statement (新增多星座) Process GPGSV / GLGSV / GBGSV / GAGSV / GQGSV etc  (***GSV). */
         switch (gh->p.term_num) {
-            case 2: /* Current GPGSV statement number */
+            case 2: /* Current GPGSV statement number - 某频点的某星座，仰角方位信息的第几条 */
                 gh->p.data.gsv.stat_num = (uint8_t)prv_parse_number(gh, NULL);
                 break;
             case 3: /* Process satellites in view */
-                gh->p.data.gsv.sats_in_view = (uint8_t)prv_parse_number(gh, NULL);
+                {
+                    uint8_t sats_in_view = (uint8_t)prv_parse_number(gh, NULL);
+    
+                    gh->p.data.gsv.sats_in_view = sats_in_view; // 保留原来的单星座值（兼容旧代码）
+                                
+                    /* 核心修复：只在序列第一条(stat_num==1)且该星座尚未统计时累加;因为每个星座输出的多条GSV语句中都包含相同的该星座的总卫星数量；并且北斗同一个卫星会输出新旧两个频点，只取第一个输出的旧频点即可 */          
+                    if (gh->p.data.gsv.stat_num == 1) {
+                    uint8_t bit = prv_gsv_get_constellation_bit(gh->gsv_talker_id[1]);// 获取当前GSV语句所属星座的bit位
+                    if (bit != 0 && !(gh->gsv_constellation_mask & bit)) {// 如果，接收到了6大星座其一；并且该星座尚未统计过；则进入统计总数代码
+                        gh->gsv_constellation_mask |= bit; /* 标记该星座已统计 */
+                        if (gh->sats_in_view_total + sats_in_view <= 999) {//我的oled最大显示3位
+                            gh->sats_in_view_total += sats_in_view;
+                        }
+                    }
+                    /* 若 bit 已置位 → 同北斗星座但第二个频点Signal ID组，直接跳过，不累加 */
+                    }
+                }
                 break;
             default:
 #if LWGPS_CFG_STATEMENT_GPGSV_SAT_DET
@@ -411,6 +450,7 @@ prv_copy_from_tmp_memory(lwgps_t* gh) {
 uint8_t
 lwgps_init(lwgps_t* gh) {
     memset(gh, 0x00, sizeof(*gh)); /* Reset structure */
+    // gh->sats_in_view_total = 0; /*(上一句已经包含了清0的效果) 初始化多星座可见卫星总数为0 */
     return 1;
 }
 
