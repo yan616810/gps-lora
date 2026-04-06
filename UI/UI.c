@@ -404,7 +404,8 @@ void UI_switch(u8g2_t *u8g2, int8_t ui_root)//ui_root:当前界面; direction: 1
             second_icon = icon_names[3];
             third_icon = icon_names[4];
             break;
-        case 1 || 2://地球文本或地球缩略图
+        case 1:
+        case 2://地球文本或地球缩略图
             first_icon = icon_names[3];
             second_icon = icon_names[4];
             third_icon = icon_names[5];

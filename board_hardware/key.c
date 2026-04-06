@@ -219,7 +219,8 @@ void key_task(void)
 				case 0://家界面
 					ui_root=-1;//电源关机
 					break;
-				case 1 || 2://GPS文本界面&&缩略图界面
+				case 1:
+				case 2://GPS文本界面&&缩略图界面
 					ui_root=0;//家界面
 					break;
 				case 3://指南针界面
@@ -252,7 +253,8 @@ void key_task(void)
 				case 0://家界面
 					ui_root=1;//GPS文本界面
 					break;
-				case 1 || 2://GPS文本界面&&缩略图界面
+				case 1:
+				case 2://GPS文本界面&&缩略图界面
 					ui_root=3;//指南针界面
 					break;
 				case 3://指南针界面
