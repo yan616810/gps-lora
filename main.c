@@ -39,7 +39,8 @@ QMC6309_t qmc6309={0};
 Type_Struct_Timezone_and_UTCxTime Struct_RTC={0};//作用：1.用于首次初始RTC；2.用于读取RTC时间戳并保存转换得到的已修正月份/年份偏移的细分时间；
 
 
-uint8_t ui_root=0;//家
+int8_t ui_root=0;//家
+uint8_t ui_switch_window_flag=0;//0:关闭切换界面 1:弹出切换界面
 
 
 /**
@@ -196,10 +197,10 @@ void task_proc(void)
 		GPS_lwgps_parser_lwrb(&gps);
 		UI_GPS_display_earth_data_proc();//函数内判断秒输出是否变化，来决定是否将gps结构体中的经纬度转换成OLED可显示的格式；转换频率不需要太高，GPS报文输出频率才1HZ；
 
-		printf("fix: %d, sats_in_use: %d, num_sats_in_view: %d\r\n",
-			gps.lwgps_handle.fix,
-			gps.lwgps_handle.sats_in_use,
-			gps.lwgps_handle.sats_in_view);
+		// printf("fix: %d, sats_in_use: %d, num_sats_in_view: %d\r\n",
+		// 	gps.lwgps_handle.fix,
+		// 	gps.lwgps_handle.sats_in_use,
+		// 	gps.lwgps_handle.sats_in_view);
     }
 	if(bmp280_cnt==200)//5HZ
 	{
@@ -245,12 +246,12 @@ void task_proc(void)
 	{
 		RTC_cnt=0;
 		GPS_RTC_time_task(&Struct_RTC);
-		printf("Timestamp = %lu\r\n", RTC_read_Timestamp());
+		// printf("Timestamp = %lu\r\n", RTC_read_Timestamp());
 	}
 	if(OLED_cnt==30)
 	{
 		OLED_cnt=0;
-		UI_OLED_display(&u8g2);
+		UI_OLED_display(&u8g2, ui_root);
 	}
 }
 
@@ -302,11 +303,13 @@ int main(void)
 
 	u8g2_ClearDisplay(&u8g2);
 /*bmp280*/
-	if(BMP280_Init(&bmp280,BMP280_HANDHELD_DEVICE_LOW_POWER,0x77,IIC_Read_Len,IIC_Write_Len,NULL))
+	uint16_t error_code;
+	if((error_code = BMP280_Init(&bmp280,BMP280_HANDHELD_DEVICE_LOW_POWER,0x77,IIC_Read_Len,IIC_Write_Len,NULL)))
 	{
 		printf("BMP280 initialized failed!\r\n");
 		u8g2_ClearBuffer(&u8g2);
-		u8g2_DrawStr(&u8g2,0,0,"BMP280 Not Init");
+		sprintf(u8g2_buf, "BMP280 Not Init-%d",error_code);
+		u8g2_DrawStr(&u8g2,0,0,u8g2_buf);
 		u8g2_SendBuffer(&u8g2);
 		while(1);
 	}
@@ -330,7 +333,7 @@ int main(void)
 	// else{//使用主控内部RTC日期
 
 	// }
-	uint16_t error_code;
+	
 	if((error_code = QMC6309_Init(&qmc6309, IIC_Read_Len, IIC_Write_Len, NULL)))//自测试会延时共170ms
 	{
 		printf("QMC6309 initialized failed! error code: %d\r\n", error_code);

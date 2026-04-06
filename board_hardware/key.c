@@ -79,49 +79,196 @@ void get_key()
 
 void key_task(void)
 {
-	switch (ui_root)
+	if(ui_switch_window_flag == 0)//如果切换界面没有弹出
 	{
-		case 0://家界面
-			if(key_value == 4){
+		switch (ui_root)
+		{
+			case -3://设置界面
+				if(key_value == 4){
 
-			}else if(key_value == 3){
+				}else if(key_value == 3){
+	
+				}else if(key_value == 2){
+				
+				}else if(key_value == 'D'){
+	
+				}else if(key_value == 'L'){
+					ui_switch_window_flag=1;//弹出切换界面
+				}
+				break;
+			case -2://关于界面
+				if(key_value == 4){
 
-			}else if(key_value == 2){
+				}else if(key_value == 3){
+	
+				}else if(key_value == 2){
+				
+				}else if(key_value == 'D'){
+	
+				}else if(key_value == 'L'){
+					ui_switch_window_flag=1;//弹出切换界面
+				}
+				break;
+			case -1://电源关机界面
+				if(key_value == 4){
+
+				}else if(key_value == 3){
+	
+				}else if(key_value == 2){
+				
+				}else if(key_value == 'D'){
+	
+				}else if(key_value == 'L'){
+					ui_switch_window_flag=1;//弹出切换界面
+				}
+				break;
+			case 0://家界面
+				if(key_value == 4){
+	
+				}else if(key_value == 3){
+	
+				}else if(key_value == 2){
+				
+				}else if(key_value == 'D'){
+	
+				}else if(key_value == 'L'){
+					ui_switch_window_flag=1;//弹出切换界面
+				}
+				break;
+			case 1://GPS文本界面
+				if(key_value == 4){
+	
+				}else if(key_value == 3){
+	
+				}else if(key_value == 2){
+					ui_root=2;//切换到GPS缩略图界面
+				}else if(key_value == 'D'){
+	
+				}else if(key_value == 'L'){
+					ui_switch_window_flag=1;//弹出切换界面
+				}
+				break;
+			case 2://GPS缩略图界面
+				if(key_value == 4){
+					ui_root=1;//切换到GPS文本界面
+				}else if(key_value == 3){
+	
+				}else if(key_value == 2){
+				
+				}else if(key_value == 'D'){
+	
+				}else if(key_value == 'L'){
+					ui_switch_window_flag=1;//弹出切换界面
+				}
+				break;
+			case 3://指南针界面
+				if(key_value == 4){
+
+				}else if(key_value == 3){
+	
+				}else if(key_value == 2){
+				
+				}else if(key_value == 'D'){
+	
+				}else if(key_value == 'L'){
+					ui_switch_window_flag=1;//弹出切换界面
+				}
+				break;
+			case 4://互联界面
+				if(key_value == 4){
+
+				}else if(key_value == 3){
+	
+				}else if(key_value == 2){
+				
+				}else if(key_value == 'D'){
+	
+				}else if(key_value == 'L'){
+					ui_switch_window_flag=1;//弹出切换界面
+				}
+				break;
+			case 5://消息界面
+				if(key_value == 4){
+
+				}else if(key_value == 3){
+	
+				}else if(key_value == 2){
+				
+				}else if(key_value == 'D'){
+	
+				}else if(key_value == 'L'){
+					ui_switch_window_flag=1;//弹出切换界面
+				}
+				break;
+			default:
+				break;
+		}
+	}
+	else if(ui_switch_window_flag == 1)//界面切换弹窗
+	{
+		if(key_value == 4){
+			//切换到上一个界面
+			switch (ui_root)
+			{
+				case -2://关于界面
+					ui_root=-3;//设置界面
+					break;
+				case -1://电源关机界面
+					ui_root=-2;//关于界面
+					break;
+				case 0://家界面
+					ui_root=-1;//电源关机
+					break;
+				case 1 || 2://GPS文本界面&&缩略图界面
+					ui_root=0;//家界面
+					break;
+				case 3://指南针界面
+					ui_root=1;//GPS文本界面
+					break;
+				case 4://互联界面
+					ui_root=3;//指南针界面
+					break;
+				case 5://消息界面
+					ui_root=4;//互联界面
+					break;
+				default:
+					break;
+			}
+		}else if(key_value == 3){
+			ui_switch_window_flag=0;//关闭切换界面
+		}else if(key_value == 2){
+			//切换到下一个界面
+			switch (ui_root)
+			{
+				case -3://设置界面
+					ui_root=-2;//关于界面
+					break;
+				case -2://关于界面
+					ui_root=-1;//电源关机界面
+					break;
+				case -1://电源关机界面
+					ui_root=0;//家界面
+					break;
+				case 0://家界面
+					ui_root=1;//GPS文本界面
+					break;
+				case 1 || 2://GPS文本界面&&缩略图界面
+					ui_root=3;//指南针界面
+					break;
+				case 3://指南针界面
+					ui_root=4;//互联界面
+					break;
+				case 4://互联界面
+					ui_root=5;//消息界面
+					break;
+				default:
+					break;
+			}
+		}else if(key_value == 'D'){
+
+		}else if(key_value == 'L'){
 			
-			}else if(key_value == 'D'){
-
-			}else if(key_value == 'L'){
-				ui_root=1;//切换到GPS文本界面
-			}
-			break;
-		case 1://GPS文本界面
-			if(key_value == 4){
-
-			}else if(key_value == 3){
-
-			}else if(key_value == 2){
-				ui_root=2;//切换到GPS缩略图界面
-			}else if(key_value == 'D'){
-
-			}else if(key_value == 'L'){
-				ui_root=0;//切换到家界面
-			}
-			break;
-		case 2://GPS缩略图界面
-			if(key_value == 4){
-				ui_root=1;//切换到GPS文本界面
-			}else if(key_value == 3){
-
-			}else if(key_value == 2){
-			
-			}else if(key_value == 'D'){
-
-			}else if(key_value == 'L'){
-				ui_root=0;//切换到家界面
-			}
-			break;
-		default:
-			break;
+		}
 	}
 	key_value=0;
 }

@@ -18,7 +18,7 @@
 #include "u8g2.h"
 #include "u8g2_monochrome_display.h"
 #include <string.h> //memset
-#include "UI/UI_GPS.h"
+#include "UI/UI.h"
 //GPS
 #include "GPS.h"
 #include <math.h>
@@ -51,6 +51,7 @@ extern QMC6309_t qmc6309;
 extern Type_Struct_Timezone_and_UTCxTime Struct_RTC;
 
 
-extern uint8_t ui_root;//家
+extern int8_t ui_root;//家
+extern uint8_t ui_switch_window_flag;
 
 #endif // !__MAIN_H

@@ -1,4 +1,4 @@
-#include "UI_GPS.h"
+#include "UI.h"
 
 /*GPS*/
 char     var_sign_lat  = '+';  //纬度符号，默认正号不显示
@@ -76,26 +76,26 @@ void UI_GPS_display_earth_no_data(u8g2_t *u8g2)
 void UI_GPS_display_earth_txt(u8g2_t *u8g2)
 {
     // u8g2_ClearBuffer(u8g2);
-    u8g2_SetFont(u8g2,u8g2_font_courB08_tr);  //w=7  h=10
+    u8g2_SetFont(u8g2,u8g2_font_courB08_tf);  //w=7  h=10
     u8g2_SetFontPosTop(u8g2);
     u8g2_SetFontMode(u8g2,0);  //显示字体的背景，不透明
     u8g2_SetDrawColor(u8g2,1);
     if (gps.lwgps_handle.is_valid && gps.lwgps_handle.fix) //lwgps_is_valid()
     {
         //显示纬度
-        sprintf(u8g2_buf,"[Lat:%c%u.%06lu]",var_sign_lat, int_part_lat, frac_part_lat);
+        sprintf(u8g2_buf,"[Lat:%c%u.%06lu%c]",var_sign_lat, int_part_lat, frac_part_lat, 176);
         u8g2_SetDrawColor(u8g2,1);
         u8g2_DrawStr(u8g2,0*7,0*10+13,u8g2_buf);
         //显示经度
-        sprintf(u8g2_buf,"[Lon:%c%u.%06lu]",var_sign_lon, int_part_lon, frac_part_lon);
+        sprintf(u8g2_buf,"[Lon:%c%u.%06lu%c]",var_sign_lon, int_part_lon, frac_part_lon, 176);
         u8g2_SetDrawColor(u8g2,1);
         u8g2_DrawStr(u8g2,0*7,1*10+13,u8g2_buf);
         //显示海拔高度
-        sprintf(u8g2_buf,"[Alt:%c%u.%02u]",var_sign_alt, int_part_alt, frac_part_alt);
+        sprintf(u8g2_buf,"[Alt:%c%u.%02um]",var_sign_alt, int_part_alt, frac_part_alt);
         u8g2_SetDrawColor(u8g2,1);
         u8g2_DrawStr(u8g2,0*7,2*10+13,u8g2_buf);
         //显示磁偏角
-        sprintf(u8g2_buf,"[Mag:%c%u.%03u]",var_sign_MV, int_part_MV, frac_part_MV);
+        sprintf(u8g2_buf,"[Mag:%c%u.%03u%c]",var_sign_MV, int_part_MV, frac_part_MV, 176);
         u8g2_SetDrawColor(u8g2,1);
         u8g2_DrawStr(u8g2,0*7,3*10+13,u8g2_buf);
         //bmp280推算出的相对高度，四舍五入保留小数点后1位，单位是米
@@ -251,8 +251,11 @@ void UI_Top_info(u8g2_t *u8g2)
     UI_battery(u8g2, 91, 2, is_charge, Power);//电池电量
 //数据
     //卫星数
-    sprintf(u8g2_buf,"%-3d",gps.lwgps_handle.sats_in_view_total);
-    u8g2_DrawStr(u8g2, 21, 9, u8g2_buf);
+    // if(gps.lwgps_handle.is_valid)//报文合法即可；不需要fix定位成功；
+    // {
+        sprintf(u8g2_buf,"%-3d",gps.lwgps_handle.sats_in_view_total);
+        u8g2_DrawStr(u8g2, 21, 9, u8g2_buf);
+    // }
     //LoRa数
     sprintf(u8g2_buf,"%-3d",LoRa_num);
     u8g2_DrawStr(u8g2, 66, 9, u8g2_buf);
@@ -271,8 +274,8 @@ void UI_HOME(u8g2_t *u8g2)//主界面显示函数：显示(卫星数量)、LoRa�
     // UI_battery(u8g2, 91, 2, is_charge, Power);//电池电量
     UI_Top_info(u8g2);
     u8g2_DrawFrame(u8g2, 0, 11, 128, 53);
-    u8g2_DrawXBM(u8g2, 8, 32, 16, 16, image_temperature_bits);//温度计图标
-    u8g2_DrawXBM(u8g2, 104, 31, 15, 16, image_Baro_wind_bits);//气压图标
+    u8g2_DrawXBMP(u8g2, 8, 32, 16, 16, image_temperature_bits);//温度计图标
+    u8g2_DrawXBMP(u8g2, 104, 31, 15, 16, image_Baro_wind_bits);//气压图标
     u8g2_DrawRFrame(u8g2, 30, 11, 66, 41, 4);//时间大框架
     u8g2_DrawLine(u8g2, 34, 23, 63, 23);//UTC框架
     u8g2_DrawLine(u8g2, 68, 33, 34, 33);//UTC框架
@@ -331,26 +334,137 @@ void UI_HOME(u8g2_t *u8g2)//主界面显示函数：显示(卫星数量)、LoRa�
     u8g2_DrawStr(u8g2, 34, 50, u8g2_buf);    
 }
 
-void UI_OLED_display(u8g2_t *u8g2)
+
+
+Icon_t icon_location = {image_location_bits, 13, 16};
+Icon_t icon_earth = {image_earth_bits, 15, 15};
+Icon_t icon_home = {image_menu_home_bits, 15, 15};
+Icon_t icon_message = {image_message_bits, 16, 16};
+Icon_t icon_device_power_button = {image_device_power_button_bits, 15, 16};
+Icon_t icon_about = {image_about_bits, 15, 16};
+Icon_t icon_Compass = {image_Compass_bits, 14, 14};
+Icon_t icon_settings_gear = {image_menu_settings_gear_bits, 16, 16};
+Icon_t icon_blank = {image_blank, 2, 2};
+
+Icon_t * const icon_names[] = {
+    &icon_settings_gear       ,   //0 16*16 设置
+    &icon_about               ,   //1 15*16 关于
+    &icon_device_power_button ,   //2 15*16 电源按钮
+    &icon_home                ,   //3 15*15 家主页
+    &icon_earth               ,   //4 15*15 地球
+    &icon_Compass             ,   //5 14*14 指南针
+    &icon_location            ,   //6 13*16 定位
+    &icon_message             ,   //7 16*16 消息
+    &icon_blank               ,   //8 2*2   空白图标，用于占位
+};
+//界面切换弹窗，根据ui_root来显示
+void UI_switch(u8g2_t *u8g2, int8_t ui_root)//ui_root:当前界面; direction: 1表示从左向右切换，0表示从右向左切换
+{
+    u8g2_SetFontPosTop(u8g2);
+    u8g2_SetFontMode(u8g2,1);  //透明
+    
+    u8g2_SetDrawColor(u8g2,0);
+    u8g2_DrawBox(u8g2, 18, -1, 92, 26);
+
+    u8g2_SetDrawColor(u8g2,1);
+    u8g2_DrawRBox(u8g2, 20, -5, 88, 27, 7);
+    
+    u8g2_SetDrawColor(u8g2,0);
+    u8g2_DrawRBox(u8g2, 28, 1, 72, 20, 8);
+
+    u8g2_SetDrawColor(u8g2,1);
+    u8g2_DrawRBox(u8g2, 52, 2, 25, 18, 8);
+
+    u8g2_SetDrawColor(u8g2,0);
+    if(ui_root != 5) u8g2_DrawXBMP(u8g2, 103, 9, 3, 5, image_ButtonRightSmall_bits);
+    if(ui_root != -3) u8g2_DrawXBMP(u8g2, 22, 9, 3, 5, image_ButtonLeftSmall_bits);
+
+    Icon_t *first_icon=NULL, *second_icon=NULL, *third_icon=NULL;
+    switch (ui_root)
+    {
+    //家的前面的页面
+        case -3://设置
+            first_icon = icon_names[8];
+            second_icon = icon_names[0];
+            third_icon = icon_names[1];
+            break;
+        case -2://关于
+            first_icon = icon_names[0];
+            second_icon = icon_names[1];
+            third_icon = icon_names[2];
+            break;
+        case -1://电源关机
+            first_icon = icon_names[1];
+            second_icon = icon_names[2];
+            third_icon = icon_names[3];
+            break;
+    //开机初始
+        case 0://家
+            first_icon = icon_names[2];
+            second_icon = icon_names[3];
+            third_icon = icon_names[4];
+            break;
+        case 1 || 2://地球文本或地球缩略图
+            first_icon = icon_names[3];
+            second_icon = icon_names[4];
+            third_icon = icon_names[5];
+            break;
+        case 3://指南针
+            first_icon = icon_names[4];
+            second_icon = icon_names[5];
+            third_icon = icon_names[6];
+            break;
+        case 4://定位
+            first_icon = icon_names[5];
+            second_icon = icon_names[6];
+            third_icon = icon_names[7];
+            break;
+        case 5://消息
+            first_icon = icon_names[6];
+            second_icon = icon_names[7];
+            third_icon = icon_names[8];
+            break;
+        default:
+            break;
+    }
+    
+    if(first_icon == NULL || second_icon == NULL || third_icon == NULL) return;//如果图标指针有一个是NULL，就直接返回，不进行绘制；这样可以避免在图标指针为NULL时，调用u8g2_DrawXBMP函数绘制图标，导致程序崩溃；因为u8g2_DrawXBMP函数需要一个有效的图像数据指针，如果传入NULL，就会访问非法内存地址，导致程序崩溃；所以在绘制之前，先检查图标指针是否为NULL，如果是NULL，就直接返回，不进行绘制；只有当三个图标指针都不为NULL时，才进行绘制；
+    u8g2_SetDrawColor(u8g2,1);
+    u8g2_DrawXBMP(u8g2, 32, 3, first_icon->width, first_icon->height, first_icon->data);//第一个图标位置
+    u8g2_DrawXBMP(u8g2, 82, 3, third_icon->width, third_icon->height, third_icon->data);//第三个图标位置
+
+    u8g2_SetBitmapMode(u8g2,1);//设置为透明模式
+    u8g2_SetDrawColor(u8g2,0);
+    u8g2_DrawXBMP(u8g2, 58, 3, second_icon->width, second_icon->height, second_icon->data);//第二个图标位置
+}
+
+void UI_OLED_display(u8g2_t *u8g2, int8_t ui_root)
 {
     u8g2_ClearBuffer(u8g2);
+
     switch (ui_root)
     {
         case 0://家
             UI_HOME(u8g2);
             break;
-        case 1:
+        case 1://地球文本
             UI_Top_info(u8g2);
             UI_GPS_display_earth_txt(u8g2);
             break;
-        case 2:
+        case 2://地球缩略图
             UI_GPS_display_earth_image(u8g2);
             break;
         default:
             break;
     }
+
+//ui菜单切换弹窗边栏显示
+    if(ui_switch_window_flag == 1)
+    {
+        UI_switch(u8g2, ui_root);
+    }
+
     u8g2_SendBuffer(u8g2);
 
-    //ui菜单切换边栏显示，box
 
 }
