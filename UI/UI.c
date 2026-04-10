@@ -1,4 +1,5 @@
 #include "UI.h"
+#include <math.h>
 
 /*GPS*/
 char     var_sign_lat  = '+';  //纬度符号，默认正号不显示
@@ -10,10 +11,20 @@ uint32_t frac_part_lon = 0;    //经度小数部分，单位是度的小数
 char     var_sign_alt  = '+';  //相对高度符号，默认正号不显示
 uint16_t int_part_alt  = 0;    //相对高度整数部分，单位是米
 uint16_t frac_part_alt = 0;	   //相对高度小数部分，单位是米的小数
+uint16_t int_part_spd  = 0;    //速度整数部分，单位是米每秒
+uint16_t frac_part_spd = 0;	   //速度小数部分，单位是米每秒的小数
 /*qmc6309*/
 char     var_sign_MV  = '+';
 uint16_t int_part_MV  = 0;
 uint16_t frac_part_MV = 0;
+/*bmp280*/
+float    fake_sea_level_pressure = 103019.0f;  //相对标准大气压，单位是Pa
+char     altitude_sign           = '+';        //bmp280推算出的相对高度符号，默认正号
+uint16_t altitude_int_part       = 0;          //bmp280推算出的相对高度整数部分，单位是米
+uint16_t altitude_frac_part      = 0;          //bmp280推算出的相对高度小数部分，单位是0.1米
+char     *temp_sign              = "";         //温度符号，默认正号不显示
+uint16_t temp_labs_int           = 0;          //温度整数部分，单位是摄氏度
+uint16_t temp_labs_frac          = 0;          //温度小数部分，单位是0.01摄氏度
 
 
 
@@ -23,6 +34,7 @@ void UI_GPS_display_earth_data_proc(void)
     if(gps.lwgps_handle.is_valid && gps.lwgps_handle.fix)//报文有效且已解算出定位
 	{
         //如果gps.lwgps_handle.seconds发生变化了说明GPS时间更新了，才进行一次坐标转换和显示更新；如果GPS时间没有更新，就不进行坐标转换和显示更新；这样可以避免在GPS时间没有更新时，频繁地进行坐标转换和显示更新，节省CPU资源和电量；因为坐标转换和显示更新是比较耗时的操作，不需要每次都进行；
+        static uint8_t last_minutes = 0xFF;//上一次的GPS年日，初始值设置为不可能的值0xFF，这样第一次进入函数时就会进行磁偏角转换和显示更新；之后当设备开始一直开启并只在新的一天开始才会进行磁偏角转换和显示更新；  
 	    static uint8_t last_seconds = 0xFF;//上一次的GPS秒数，初始值设置为不可能的值0xFF，这样第一次进入函数时就会进行坐标转换和显示更新；之后只有当GPS秒数发生变化时才会进行坐标转换和显示更新；
         if(gps.lwgps_handle.seconds != last_seconds)
 	    {
@@ -45,7 +57,15 @@ void UI_GPS_display_earth_data_proc(void)
 	    		uint32_t temp_alt      = abs_var_alt * 100.0f + 0.5f;
 	    		int_part_alt  = temp_alt / 100;          //整数部分
 	    		frac_part_alt = temp_alt % 100;          //小数
-	    	//得到当前日期对应的WMM模型参数，计算磁偏角
+            //速度处理成OLED可显示的格式
+        		uint32_t temp_spd      = lwgps_to_speed(gps.lwgps_handle.speed, lwgps_speed_mps) * 10.0f + 0.5f;
+        		int_part_spd  = temp_spd / 10;          //整数部分
+        		frac_part_spd = temp_spd % 10;          //小数
+            //得到当前日期对应的WMM模型参数，计算磁偏角；(因为你的经纬度可能变化非常快，所以实时计算磁偏角可以让航向校正更准确；如果你觉得计算磁偏角比较耗时，可以考虑只在每分钟变化时计算磁偏角，因为磁偏角的变化主要是随着时间的变化，而不是经纬度的变化；这样可以减少磁偏角的计算次数，节省CPU资源和电量；因为磁偏角的计算是比较耗时的操作，不需要每次都进行；)
+            if(gps.lwgps_handle.minutes != last_minutes)
+            {
+                last_minutes = gps.lwgps_handle.minutes;
+                    
 	    		float Date_WMM = wmm_get_date(gps.lwgps_handle.year % 100, gps.lwgps_handle.month, gps.lwgps_handle.date);
 	    		float Magnetic_variation;
 	    		E0000(gps.lwgps_handle.latitude, gps.lwgps_handle.longitude, Date_WMM, &Magnetic_variation);//磁偏角结果是正值表示东偏，负值表示西偏，单位是度；输出浮点数
@@ -56,6 +76,7 @@ void UI_GPS_display_earth_data_proc(void)
 	    		uint32_t temp      = abs_var_MV * 1000.0f + 0.5f;                  //保留小数点后三位，四舍五入；单位是0.001度；float强制转int时向下截断如： 1.999会变成1，所以加0.5实现四舍五入
 	    		int_part_MV  = temp / 1000;                               //整数部分
 	    		frac_part_MV = temp % 1000;                               //小数部分
+            }
 	    }
     }
 }
@@ -63,7 +84,7 @@ void UI_GPS_display_earth_data_proc(void)
 /*GPS无信号时的弹窗*/
 void UI_GPS_display_earth_no_data(u8g2_t *u8g2)
 {
-    u8g2_SetFont(u8g2,u8g2_font_courB08_tr);  //w=7  h=10
+    u8g2_SetFont(u8g2,u8g2_font_courB08_tf);  //w=7  h=10
     u8g2_SetFontPosTop(u8g2);
     u8g2_SetFontMode(u8g2,0);  //显示字体的背景，不透明   
     u8g2_SetDrawColor(u8g2,1);
@@ -84,24 +105,23 @@ void UI_GPS_display_earth_txt(u8g2_t *u8g2)
     {
         //显示纬度
         sprintf(u8g2_buf,"[Lat:%c%u.%06lu%c]",var_sign_lat, int_part_lat, frac_part_lat, 176);
-        u8g2_SetDrawColor(u8g2,1);
         u8g2_DrawStr(u8g2,0*7,0*10+13,u8g2_buf);
         //显示经度
         sprintf(u8g2_buf,"[Lon:%c%u.%06lu%c]",var_sign_lon, int_part_lon, frac_part_lon, 176);
-        u8g2_SetDrawColor(u8g2,1);
         u8g2_DrawStr(u8g2,0*7,1*10+13,u8g2_buf);
         //显示海拔高度
         sprintf(u8g2_buf,"[Alt:%c%u.%02um]",var_sign_alt, int_part_alt, frac_part_alt);
-        u8g2_SetDrawColor(u8g2,1);
         u8g2_DrawStr(u8g2,0*7,2*10+13,u8g2_buf);
+        //显示速度
+        sprintf(u8g2_buf,"[spd:%u.%01um/s]", int_part_spd, frac_part_spd);
+        u8g2_DrawStr(u8g2,0*7,3*10+13,u8g2_buf);
         //显示磁偏角
         sprintf(u8g2_buf,"[Mag:%c%u.%03u%c]",var_sign_MV, int_part_MV, frac_part_MV, 176);
-        u8g2_SetDrawColor(u8g2,1);
-        u8g2_DrawStr(u8g2,0*7,3*10+13,u8g2_buf);
-        //bmp280推算出的相对高度，四舍五入保留小数点后1位，单位是米
-        sprintf(u8g2_buf,"[R-H:%c%u.%01um]", altitude_sign, altitude_int_part, altitude_frac_part);//相对高度，最大相对高度65535m
-        u8g2_SetDrawColor(u8g2,1);
         u8g2_DrawStr(u8g2,0*7,4*10+13,u8g2_buf);
+        // //bmp280推算出的相对高度，四舍五入保留小数点后1位，单位是米
+        // sprintf(u8g2_buf,"[R-H:%c%u.%01um]", altitude_sign, altitude_int_part, altitude_frac_part);//相对高度，最大相对高度65535m
+        // u8g2_SetDrawColor(u8g2,1);
+        // u8g2_DrawStr(u8g2,0*7,4*10+13,u8g2_buf);
     }
     else//GPS无效或无定位
     {
@@ -116,12 +136,12 @@ void UI_GPS_display_earth_txt(u8g2_t *u8g2)
     //箭头
     u8g2_SetDrawColor(u8g2,1);
     u8g2_SetBitmapMode(u8g2, 1);  //设置为透明模式，绘制时不会覆盖背景
-    u8g2_DrawXBMP(u8g2, 125, 30, 3, 5, image_ButtonRightSmall_bits);
+    u8g2_DrawXBMP(u8g2, 123, 35, 3, 5, image_ButtonRightSmall_bits);
 }
 /*GPS全球缩略图模式*/
 void UI_GPS_display_earth_image(u8g2_t *u8g2)
 {
-    u8g2_SetFont(u8g2,u8g2_font_courB08_tr);  //w=7  h=10
+    u8g2_SetFont(u8g2,u8g2_font_courB08_tf);  //w=7  h=10
     u8g2_SetFontPosTop(u8g2);
     u8g2_SetFontMode(u8g2,0);  //显示字体的背景，不透明
     u8g2_SetDrawColor(u8g2,1);
@@ -139,71 +159,31 @@ void UI_GPS_display_earth_image(u8g2_t *u8g2)
     //箭头
     u8g2_SetDrawColor(u8g2,1);
     u8g2_SetBitmapMode(u8g2, 1);  //设置为透明模式，绘制时不会覆盖背景
-    u8g2_DrawXBMP(u8g2, 0, 30, 3, 5, image_ButtonLeftSmall_bits);
+    u8g2_DrawXBMP(u8g2, 2, 35, 3, 5, image_ButtonLeftSmall_bits);
 }
-// void UI_GPS_display_earth(u8g2_t *u8g2, uint8_t earth_flag)//earth_flag: 1表示以文本形式显示实时坐标，0表示以全球缩略图的形式显示实时坐标
-// {
-//     // u8g2_ClearBuffer(u8g2);
-//     u8g2_SetFont(u8g2,u8g2_font_courB08_tr);  //w=7  h=10
-// 	u8g2_SetFontPosTop(u8g2);
-// 	u8g2_SetFontMode(u8g2,0);  //显示字体的背景，不透明
-//     u8g2_SetDrawColor(u8g2,1);
-//     if (gps.lwgps_handle.is_valid && gps.lwgps_handle.fix) //lwgps_is_valid()
-// 	{
-// 		if(earth_flag)//以文本形式显示实时坐标
-// 		{
-//         //显示纬度
-// 			sprintf(u8g2_buf,"[Lat:%c%u.%06lu]",var_sign_lat, int_part_lat, frac_part_lat);
-// 			u8g2_SetDrawColor(u8g2,1);
-// 			u8g2_DrawStr(u8g2,0*7,0*10,u8g2_buf);
-//         //显示经度
-// 			sprintf(u8g2_buf,"[Lon:%c%u.%06lu]",var_sign_lon, int_part_lon, frac_part_lon);
-// 			u8g2_SetDrawColor(u8g2,1);
-// 			u8g2_DrawStr(u8g2,0*7,1*10,u8g2_buf);
-//         //显示海拔高度
-// 			sprintf(u8g2_buf,"[Alt:%c%u.%02u]",var_sign_alt, int_part_alt, frac_part_alt);
-// 			u8g2_SetDrawColor(u8g2,1);
-// 			u8g2_DrawStr(u8g2,0*7,2*10,u8g2_buf);
-//         //显示磁偏角
-// 			sprintf(u8g2_buf,"[Mag:%c%u.%03u]",var_sign_MV, int_part_MV, frac_part_MV);
-// 			u8g2_SetDrawColor(u8g2,1);
-// 			u8g2_DrawStr(u8g2,0*7,3*10,u8g2_buf);
-//         //bmp280推算出的相对高度，四舍五入保留小数点后1位，单位是米
-//             sprintf(u8g2_buf,"[R-H:%c%u.%01um]", altitude_sign, altitude_int_part, altitude_frac_part);//相对高度，最大相对高度65535m
-// 			u8g2_SetDrawColor(u8g2,1);
-// 			u8g2_DrawStr(u8g2,0*7,4*10,u8g2_buf);
-//         }
-// 		else{//全球缩略图
-// 			u8g2_oled_draw_earth(u8g2);//在全幅缓冲区内绘制全球缩略图
-// 			u8g2_oled_draw_earth_pixel_VHxvLine(u8g2,gps.lwgps_handle.latitude,gps.lwgps_handle.longitude);//在全球缩略图上绘制实时经纬度坐标点
-// 		}
-// 	}
-// 	else//GPS无效或无定位
-// 	{
-//         if(earth_flag)//以文本形式显示实时坐标
-//         {
-//             u8g2_DrawStr(u8g2,0*7,0*10,"[Lat:No Data]");
-//             u8g2_DrawStr(u8g2,0*7,1*10,"[Lon:No Data]");
-//             u8g2_DrawStr(u8g2,0*7,2*10,"[Alt:No Data]");
-//             u8g2_DrawStr(u8g2,0*7,3*10,"[Mag:No Data]");
-//             u8g2_DrawStr(u8g2,0*7,4*10,"[R-H:No Data]");
-//         }
-//         else{
-//             u8g2_oled_draw_earth(u8g2);//在全幅缓冲区内绘制全球缩略图
-//         }
 
-// 		u8g2_SetDrawColor(u8g2,1);
-// 		u8g2_DrawBox(u8g2,3*7,27,13*7,15);
-// 		u8g2_SetDrawColor(u8g2,0);
-// 		u8g2_DrawStr(u8g2,3*7,3*10,"[>GPS No Data<]");
-//     }
-// }
+/***************************************家界面******************************************************** */
 
-
+void UI_BPM280_data_proc(void)
+{
+    //温度只显示负号
+    	temp_sign=(bmp280.Temperature_ture<0) ? "-" : "";//要用字符串
+    	uint16_t temp_labs=(bmp280.Temperature_ture<0) ? -bmp280.Temperature_ture : bmp280.Temperature_ture;
+		temp_labs += 5;//四舍五入，单位是0.01摄氏度
+    	temp_labs_int = temp_labs/100;
+		temp_labs_frac = (temp_labs%100)/10;//四舍五入保留小数点后一位
+	//相对高度差，浮点float转符号整数部分和小数部分
+		// float altitude = calculate_altitude(bmp280.Pressure_ture, fake_sea_level_pressure);
+		// altitude_sign = (altitude >= 0) ? '+' : '-';
+		// float abs_var = fabsf(altitude);
+		// uint32_t temp = abs_var * 10.0f + 0.5f;//四舍五入保留小数点后两位
+		// altitude_int_part = temp / 10;//整数部分
+		// altitude_frac_part = temp % 10;//小数部分
+}
 
 uint16_t LoRa_num=16;
 uint8_t is_charge=0;
-uint8_t Power=50;//电量剩余26%
+uint8_t Power=50;//电量剩余50%
 
 static const char * const wday_data[]={"Sun","Mon","Tue","Wed","Thur","Fri","Sat"};
 
@@ -305,15 +285,6 @@ void UI_HOME(u8g2_t *u8g2)//主界面显示函数：显示(卫星数量)、LoRa�
 
     u8g2_SetDrawColor(u8g2,1);//像素亮来表示字体
     u8g2_SetFont(u8g2, u8g2_font_6x12_tf);
-    // //卫星数
-    // sprintf(u8g2_buf,"%-3d",gps.lwgps_handle.sats_in_view_total);
-    // u8g2_DrawStr(u8g2, 21, 9, u8g2_buf);
-    // //LoRa数
-    // sprintf(u8g2_buf,"%-3d",LoRa_num);
-    // u8g2_DrawStr(u8g2, 66, 9, u8g2_buf);
-    // //电量数
-    // sprintf(u8g2_buf,"%-3d",Power);
-    // u8g2_DrawStr(u8g2, 107, 9, u8g2_buf);
     //日期
     sprintf(u8g2_buf,"%04d-%02d-%02d",Struct_RTC.UTCxTime.tm_year, Struct_RTC.UTCxTime.tm_mon, Struct_RTC.UTCxTime.tm_mday);
     u8g2_DrawStr(u8g2, 34, 21, u8g2_buf);
@@ -334,7 +305,7 @@ void UI_HOME(u8g2_t *u8g2)//主界面显示函数：显示(卫星数量)、LoRa�
     u8g2_DrawStr(u8g2, 34, 50, u8g2_buf);    
 }
 
-
+/******************************界面切换************************************************* */
 
 Icon_t icon_location = {image_location_bits, 13, 16};
 Icon_t icon_earth = {image_earth_bits, 15, 15};
@@ -439,6 +410,146 @@ void UI_switch(u8g2_t *u8g2, int8_t ui_root)//ui_root:当前界面; direction: 1
     u8g2_DrawXBMP(u8g2, 58, 3, second_icon->width, second_icon->height, second_icon->data);//第二个图标位置
 }
 
+/*****************************指南针界面******************************************* */
+
+/* ─── 参数配置 ─── */
+#define COMPASS_CX       26    // 圆心X（屏幕左半边）
+#define COMPASS_CY       37    // 圆心Y（128x64屏幕垂直居中）
+#define COMPASS_R        25    // 外圆半径
+#define COMPASS_LABEL_R  18    // 字符 NESW 到圆心的距离
+#define COMPASS_TICK_R   (COMPASS_R - 1)  // 刻度起点（贴内壁）
+
+/* ─── 角度转弧度 ─── */
+#define DEG2RAD(d) ((d) * 3.14159265f / 180.0f)
+
+/* ─── 辅助：将角度+半径转成屏幕坐标 ───
+ * angle_deg：以"正上方=0°、顺时针为正"的度数
+ */
+static inline int16_t px(float angle_deg, float r) {
+    return (int16_t)(COMPASS_CX + r * sinf(DEG2RAD(angle_deg)));
+}
+static inline int16_t py(float angle_deg, float r) {
+    return (int16_t)(COMPASS_CY - r * cosf(DEG2RAD(angle_deg)));
+}
+
+void UI_Compass_display(u8g2_t *u8g2, QMC6309_t *qmc6309)
+{
+    u8g2_SetFontPosTop(u8g2);
+    u8g2_SetFontMode(u8g2, 0);   // 不透明背景
+    u8g2_SetDrawColor(u8g2, 1);
+//框架
+    u8g2_DrawFrame(u8g2, 0, 11, 53, 53);
+    u8g2_DrawFrame(u8g2, 52, 10, 76, 54);
+    u8g2_DrawLine(u8g2, 52, 49, 127, 49);
+    u8g2_DrawXBMP(u8g2, 4, 15, 4, 4, image_menu_arrow_up_left_bits);
+    u8g2_DrawXBMP(u8g2, 45, 15, 4, 4, image_menu_arrow_up_right_bits);
+    u8g2_DrawXBMP(u8g2, 45, 56, 4, 4, image_menu_arrow_down_right_bits);
+    u8g2_DrawXBMP(u8g2, 4, 56, 4, 4, image_menu_arrow_down_left_bits);
+//指南针圆盘
+    float h = (float)(qmc6309->heading); // 0~359
+
+    /* ── 1. 外圆 ── */
+    u8g2_DrawCircle(u8g2, COMPASS_CX, COMPASS_CY, COMPASS_R, U8G2_DRAW_ALL);
+
+    // /* ── 2. 刻度线（随圆盘旋转） ──
+    //  * 每15°一根，共24根；
+    //  * 主刻度（0/90/180/270°）长5px，次刻度（45°）长3px，其余长2px
+    //  */
+    // for (int i = 0; i < 24; i++) {
+    //     float angle = (float)(i * 15) - h;
+    //     uint8_t tick_len;
+    //     if      (i % 6 == 0) tick_len = 5;   // 主刻度（NESW位置）
+    //     else if (i % 3 == 0) tick_len = 3;   // 次刻度（NE/SE/SW/NW）
+    //     else                 tick_len = 2;   // 小刻度
+
+    //     int16_t x1 = px(angle, COMPASS_TICK_R);
+    //     int16_t y1 = py(angle, COMPASS_TICK_R);
+    //     int16_t x2 = px(angle, COMPASS_TICK_R - tick_len);
+    //     int16_t y2 = py(angle, COMPASS_TICK_R - tick_len);
+    //     u8g2_DrawLine(u8g2, x1, y1, x2, y2);
+    // }
+
+    /* ── 2. 刻度线（随圆盘旋转） ──
+     * 每30°一根，共12根；
+     * 主刻度（0/90/180/270°）长5px，其余长2px
+     */
+    for (int i = 0; i < 12; i++) {
+        float angle = (float)(i * 30) - h;
+            uint8_t tick_len;
+            if      (i % 3 == 0) tick_len = 3;   // 主刻度（NESW位置）
+            else                 tick_len = 1;   // 小刻度
+
+        int16_t x1 = px(angle, COMPASS_TICK_R);
+        int16_t y1 = py(angle, COMPASS_TICK_R);
+        int16_t x2 = px(angle, COMPASS_TICK_R - tick_len);
+        int16_t y2 = py(angle, COMPASS_TICK_R - tick_len);
+        u8g2_DrawLine(u8g2, x1, y1, x2, y2);
+    }
+
+    /* ── 3. NESW 字符（随圆盘旋转） ──
+     * 手动居中绘制
+     */
+    u8g2_SetFont(u8g2, u8g2_font_courB08_tf);
+    const uint8_t FW = 6, FH = 8; // 字体宽高（用于居中偏移）
+
+    typedef struct { const char *label; float base_angle; } CardinalDir;
+    const CardinalDir dirs[4] = {
+        { "N",   0.0f },
+        { "E",  90.0f },
+        { "S", 180.0f },
+        { "W", 270.0f },
+    };
+
+    for (int i = 0; i < 4; i++) {
+        float angle = dirs[i].base_angle - h;
+        int16_t lx = px(angle, COMPASS_LABEL_R) - FW / 2;
+        int16_t ly = py(angle, COMPASS_LABEL_R) - FH / 2;
+
+        // /* N 字用高亮色（异或模式反显）突出显示 */
+        // if (i == 0) {
+        //     u8g2_SetDrawColor(u8g2, 2); // XOR，反色高亮
+        //     u8g2_DrawRBox(u8g2, lx - 1, ly - 1, FW + 2, FH + 2, 2); // 背景框，稍微大于字体尺寸
+        // }
+        u8g2_SetDrawColor(u8g2, 1);
+        u8g2_DrawStr(u8g2, lx, ly, dirs[i].label);
+    }
+
+    // /* ── 4. 固定北向三角指针（不随圆盘旋转） ──
+    //  * 位于圆盘正上方外侧，始终固定
+    //  */
+    // u8g2_DrawTriangle(u8g2,
+    //     COMPASS_CX,                   COMPASS_CY - COMPASS_R - 1,   // 顶点
+    //     COMPASS_CX - 3,               COMPASS_CY - COMPASS_R + 5,   // 左底
+    //     COMPASS_CX + 3,               COMPASS_CY - COMPASS_R + 5);  // 右底
+
+    /* ── 5. 圆心小点 ── */
+    // u8g2_DrawDisc(u8g2, COMPASS_CX, COMPASS_CY, 2, U8G2_DRAW_ALL);
+    u8g2_DrawXBMP(u8g2, 24, 30, 5, 11, image_Compass_arrow_bits);
+//文字信息
+    /* ── 6. 右侧信息区：数字航向 + 方位名称 ──
+     * 利用屏幕右半部分显示辅助信息
+     */
+    u8g2_SetFontPosBaseline(u8g2);
+    u8g2_SetFont(u8g2, u8g2_font_6x12_tr);
+    u8g2_DrawStr(u8g2, 61, 20, "Real North");
+    // 三位数字航向 + 一位度数
+    u8g2_SetFont(u8g2, u8g2_font_profont22_tf);
+    sprintf(u8g2_buf,"%d%c", qmc6309->heading, 176);
+    u8g2_DrawStr(u8g2, 67, 37, u8g2_buf);
+
+    // 方位名称（N/NE/E/SE/S/SW/W/NW）
+    u8g2_SetFont(u8g2, u8g2_font_6x12_tr);
+    const char *dir_names[] = {
+        "N","NE","E","SE","S","SW","W","NW"
+    };
+    int dir_idx = ((int)(qmc6309->heading + 22) / 45) % 8;
+    u8g2_DrawStr(u8g2, 83, 47, dir_names[dir_idx]);
+//校准按钮
+    
+}
+
+/****************************************************************** */
+
 void UI_OLED_display(u8g2_t *u8g2, int8_t ui_root)
 {
     u8g2_ClearBuffer(u8g2);
@@ -454,6 +565,10 @@ void UI_OLED_display(u8g2_t *u8g2, int8_t ui_root)
             break;
         case 2://地球缩略图
             UI_GPS_display_earth_image(u8g2);
+            break;
+        case 3://指南针
+            UI_Top_info(u8g2);
+            UI_Compass_display(u8g2, &qmc6309);
             break;
         default:
             break;

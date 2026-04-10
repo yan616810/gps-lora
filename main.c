@@ -23,16 +23,8 @@ u8g2_t u8g2;
 char u8g2_buf[25];
 /*GPS*/
 GPS_t    gps           = {0};  // 全局 GPS 实例
-uint8_t  earth_flag    = 1;    //是否以全球缩略图的形式显示实时坐标 1:文本形式 0:全球缩略图形式
 /*bmp280*/
-BMP280_t bmp280                  = {0};        // 全局 BMP280 实例
-float    fake_sea_level_pressure = 103019.0f;  //相对标准大气压，单位是Pa
-char     altitude_sign           = '+';        //bmp280推算出的相对高度符号，默认正号
-uint16_t altitude_int_part       = 0;          //bmp280推算出的相对高度整数部分，单位是米
-uint16_t altitude_frac_part      = 0;          //bmp280推算出的相对高度小数部分，单位是0.1米
-char     *temp_sign              = "";         //温度符号，默认正号不显示
-uint16_t temp_labs_int           = 0;          //温度整数部分，单位是摄氏度
-uint16_t temp_labs_frac          = 0;          //温度小数部分，单位是0.01摄氏度
+BMP280_t bmp280        = {0};        // 全局 BMP280 实例
 /*qmc6309*/
 QMC6309_t qmc6309={0};
 /*RTC*/
@@ -90,95 +82,6 @@ void TIM6_IRQHandler (void)
         TIM_ClearITPendingBit(TIM6, TIM_IT_Update);
     }
 }
-// /**
-//  * @brief 按键任务，检测到按键事件后执行相应的操作
-//  * 
-//  */
-// void key_task(void)
-// {
-//     if(key_value == 'L')
-//     {
-//         printf("Long press detected!\r\n");
-// 		switch (ui_root)
-// 		{
-// 			case 0://家界面
-// 				ui_root=1;//切换到GPS文本界面
-// 				break;
-// 			case 1://GPS文本界面
-// 				ui_root=0;//切换到家界面
-// 				break;
-// 			default:
-// 				break;
-// 		}
-//     }
-//     else if(key_value == 'D')
-//     {
-//         printf("Double press detected!\r\n");
-//         // oled_image_hongzhong(85);
-// 		switch (ui_root)
-// 		{
-// 			case 0://家界面
-// 				break;
-// 			case 1://GPS界面
-// 				break;
-// 			default:
-// 				break;
-// 		}
-//     }
-//     else if(key_value == 2)
-//     {
-//         printf("Key 2 pressed!\r\n");
-//         // oled_image_leige(85);
-//         // LCD_ShowSnow(0,0,LCD_WIDTH-1,LCD_HEIGHT-1);
-// 		switch (ui_root)
-// 		{
-// 			case 0://家界面
-// 				break;
-// 			case 1://GPS界面
-// 				// earth_flag = (earth_flag == 0) ? 1 : 0; // 切换GPS显示模式
-// 				earth_flag = 0; // 切换GPS显示模式
-// 				break;
-// 			default:
-// 				break;
-// 		}
-//     }
-//     else if(key_value == 3)
-//     {
-//         printf("Key 3 pressed!\r\n");
-//         // oled_image_binbin();
-//         // LCD_DrawLine(0,0,200,200,0x0000);//画一条黑色斜线
-//         // LCD_DrawRect(50,50,150,150,0xf800);//画一个红色矩形
-// 		switch (ui_root)
-// 		{
-// 			case 0://家界面
-// 				break;
-// 			case 1://GPS界面
-// 				fake_sea_level_pressure = bmp280.Pressure_ture;//将当前的气压读数作为相对标准大气压，这样可以得到相对于当前环境的高度变化，适合手持设备使用
-// 				break;
-// 			default:
-// 				break;
-// 		}
-//     }
-//     else if(key_value == 4)
-//     {
-//         printf("Key 4 pressed!\r\n");
-//         // oled_image_jinxin(85);
-//         // LCD_FillRect(0,50,85,150,0xc88c);
-//         // LCD_FillRect(50,100,120,200,0x57f6);
-
-// 		switch (ui_root)
-// 		{
-// 			case 0://家界面
-// 				break;
-// 			case 1://GPS界面
-// 				earth_flag = 1; // 切换GPS显示模式
-// 				break;
-// 			default:
-// 				break;
-// 		}
-//     }
-//     key_value=0;
-// }
 
 void task_proc(void)
 {
@@ -209,24 +112,7 @@ void task_proc(void)
 		{
 			BMP280_Get_Temperature_ture_int32(&bmp280);
 			BMP280_Get_Pressure_ture_int32(&bmp280);
-		//温度只显示负号
-    		temp_sign=(bmp280.Temperature_ture<0) ? "-" : "";//要用字符串
-    		uint16_t temp_labs=(bmp280.Temperature_ture<0) ? -bmp280.Temperature_ture : bmp280.Temperature_ture;
-			temp_labs += 5;//四舍五入，单位是0.01摄氏度
-    		temp_labs_int = temp_labs/100;
-			temp_labs_frac = (temp_labs%100)/10;//四舍五入保留小数点后一位
-		//有符号整数int32_t转符号整数部分和小数部分
-			// char temp_sign = (bmp280.Temperature_ture >= 0) ? '+' : '-';
-			// uint32_t temp_labs = (bmp280.Temperature_ture >= 0) ? (uint32_t)(bmp280.Temperature_ture) : (uint32_t)(-bmp280.Temperature_ture);
-			// uint16_t temp_int_part = temp_labs / 100;
-			// uint16_t temp_frac_part = temp_labs % 100;
-		//相对高度差，浮点float转符号整数部分和小数部分
-			float altitude = calculate_altitude(bmp280.Pressure_ture, fake_sea_level_pressure);
-			altitude_sign = (altitude >= 0) ? '+' : '-';
-			float abs_var = fabsf(altitude);
-			uint32_t temp = abs_var * 10.0f + 0.5f;//四舍五入保留小数点后两位
-			altitude_int_part = temp / 10;//整数部分
-			altitude_frac_part = temp % 10;//小数部分
+			UI_BPM280_data_proc();//温度
 		}
 		else printf("BMP280 Read error!\r\n");
 	}
@@ -311,29 +197,16 @@ int main(void)
 		sprintf(u8g2_buf, "BMP280 Not Init-%d",error_code);
 		u8g2_DrawStr(&u8g2,0,0,u8g2_buf);
 		u8g2_SendBuffer(&u8g2);
-		while(1);
+		while(1)//按任意键关机
+		{
+			if((GPIOB->IDR & GPIO_Pin_15)==0) GPIO_WriteBit(GPIOC, GPIO_Pin_13, Bit_RESET);
+			else if((GPIOB->IDR & GPIO_Pin_14)==0) GPIO_WriteBit(GPIOC, GPIO_Pin_13, Bit_RESET);
+			else if((GPIOB->IDR & GPIO_Pin_13)==0) GPIO_WriteBit(GPIOC, GPIO_Pin_13, Bit_RESET);
+		}
 	}
-	else
-	{
-
-		printf("BMP280 initialized successfully!\r\n");
-	}
+	else printf("BMP280 initialized successfully!\r\n");
 /*qmc6309*/
-	wmm_init();//磁偏角库初始化
-	// if(gps.lwgps_handle.is_valid)
-	// {
-	// 	float Date_WMM = wmm_get_date(gps.lwgps_handle.year % 100, gps.lwgps_handle.month, gps.lwgps_handle.date);
-	// 	float Magnetic_variation;
-	// 	E0000(gps.lwgps_handle.latitude, gps.lwgps_handle.longitude, Date_WMM, &Magnetic_variation);
-
-	// 	int32_t Magnetic_variation_frac_part = (int32_t)((Magnetic_variation - (int32_t)Magnetic_variation) * 100);
-	// 	if (Magnetic_variation_frac_part < 0) Magnetic_variation_frac_part = -Magnetic_variation_frac_part;
-	// 	printf("WMM magnetic declination calculated successfully! Declination: %+d.%02d degrees\r\n", (int32_t)Magnetic_variation, Magnetic_variation_frac_part);
-	// }
-	// else{//使用主控内部RTC日期
-
-	// }
-	
+	wmm_init();//磁偏角库初始化	
 	if((error_code = QMC6309_Init(&qmc6309, IIC_Read_Len, IIC_Write_Len, NULL)))//自测试会延时共170ms
 	{
 		printf("QMC6309 initialized failed! error code: %d\r\n", error_code);
@@ -341,13 +214,14 @@ int main(void)
 		sprintf(u8g2_buf, "QMC6309 Not Init-%d",error_code);
 		u8g2_DrawStr(&u8g2,0,0,u8g2_buf);
 		u8g2_SendBuffer(&u8g2);
-		while(1);
+		while(1)//按任意键关机
+		{
+			if((GPIOB->IDR & GPIO_Pin_15)==0) GPIO_WriteBit(GPIOC, GPIO_Pin_13, Bit_RESET);
+			else if((GPIOB->IDR & GPIO_Pin_14)==0) GPIO_WriteBit(GPIOC, GPIO_Pin_13, Bit_RESET);
+			else if((GPIOB->IDR & GPIO_Pin_13)==0) GPIO_WriteBit(GPIOC, GPIO_Pin_13, Bit_RESET);
+		}
 	}
-	else
-	{
-
-		printf("QMC6309 initialized successfully!\r\n");
-	}
+	else printf("QMC6309 initialized successfully!\r\n");
 /*定时器6初始化，周期1ms，用于任务调度*/    
     timer6_init();
     for(;;)

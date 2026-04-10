@@ -73,11 +73,22 @@ typedef struct icon
 } Icon_t;
 
 
+//指南针箭头5*11
+static const unsigned char image_Compass_arrow_bits[] = {0x04,0x0e,0x15,0x04,0x04,0x04,0x04,0x1f,0x04,0x04,0x04};
+//正方形四角装饰
+static const unsigned char image_menu_arrow_down_left_bits[] = {0x01,0x03,0x07,0x0f};
+static const unsigned char image_menu_arrow_down_right_bits[] = {0x08,0x0c,0x0e,0x0f};
+static const unsigned char image_menu_arrow_up_left_bits[] = {0x0f,0x07,0x03,0x01};
+static const unsigned char image_menu_arrow_up_right_bits[] = {0x0f,0x0e,0x0c,0x08};
+
+
+
 void UI_GPS_display_earth_data_proc(void);
 void UI_GPS_display_earth_no_data(u8g2_t *u8g2);
 void UI_GPS_display_earth_txt(u8g2_t *u8g2);
 void UI_GPS_display_earth_image(u8g2_t *u8g2);
 
+void UI_BPM280_data_proc(void);
 void UI_battery(u8g2_t *u8g2, u8g2_uint_t x, u8g2_uint_t y, uint8_t is_charge, uint8_t power);
 void UI_Top_info(u8g2_t *u8g2);
 void UI_HOME(u8g2_t *u8g2);
