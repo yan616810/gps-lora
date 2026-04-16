@@ -152,6 +152,7 @@
 {
 }*/
 
+//GPS
 void UART4_IRQHandler (void)
 {
   /* forward to registered callback if available */
@@ -166,6 +167,17 @@ void DMA2_CH3_IRQHandler (void)
     gps.dma_full_irq(&gps);
   }
 }
+
+//LoRa
+void USART2_IRQHandler (void)
+{
+  UART2_IRQHandler_RXNE_callback();
+}
+void USART1_IRQHandler (void)
+{
+  UART1_IRQHandler_RXNE_callback();
+}
+
 /**
   * @}
   */ 

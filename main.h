@@ -29,6 +29,8 @@
 #include "qmc6309.h"
 //RTC
 #include "RTC.h"
+//LoRa
+#include "LoRa.h"
 
 /*u8g2*/
 extern u8g2_t u8g2;

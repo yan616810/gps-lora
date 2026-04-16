@@ -432,7 +432,7 @@ static inline int16_t py(float angle_deg, float r) {
     return (int16_t)(COMPASS_CY - r * cosf(DEG2RAD(angle_deg)));
 }
 
-void UI_Compass_display(u8g2_t *u8g2, QMC6309_t *qmc6309)
+void UI_Compass_display(u8g2_t *u8g2, int16_t qmc6309_heading)
 {
     u8g2_SetFontPosTop(u8g2);
     u8g2_SetFontMode(u8g2, 0);   // 不透明背景
@@ -446,7 +446,7 @@ void UI_Compass_display(u8g2_t *u8g2, QMC6309_t *qmc6309)
     u8g2_DrawXBMP(u8g2, 45, 56, 4, 4, image_menu_arrow_down_right_bits);
     u8g2_DrawXBMP(u8g2, 4, 56, 4, 4, image_menu_arrow_down_left_bits);
 //指南针圆盘
-    float h = (float)(qmc6309->heading); // 0~359
+    float h = (float)(qmc6309_heading); // 0~359
 
     /* ── 1. 外圆 ── */
     u8g2_DrawCircle(u8g2, COMPASS_CX, COMPASS_CY, COMPASS_R, U8G2_DRAW_ALL);
@@ -534,7 +534,7 @@ void UI_Compass_display(u8g2_t *u8g2, QMC6309_t *qmc6309)
     u8g2_DrawStr(u8g2, 61, 20, "Real North");
     // 三位数字航向 + 一位度数
     u8g2_SetFont(u8g2, u8g2_font_profont22_tf);
-    sprintf(u8g2_buf,"%d%c", qmc6309->heading, 176);
+    sprintf(u8g2_buf,"%d%c", qmc6309_heading, 176);
     u8g2_DrawStr(u8g2, 67, 37, u8g2_buf);
 
     // 方位名称（N/NE/E/SE/S/SW/W/NW）
@@ -542,7 +542,7 @@ void UI_Compass_display(u8g2_t *u8g2, QMC6309_t *qmc6309)
     const char *dir_names[] = {
         "N","NE","E","SE","S","SW","W","NW"
     };
-    int dir_idx = ((int)(qmc6309->heading + 22) / 45) % 8;
+    int dir_idx = ((int)(qmc6309_heading + 22) / 45) % 8;
     u8g2_DrawStr(u8g2, 83, 47, dir_names[dir_idx]);
 //校准按钮
     
@@ -568,7 +568,7 @@ void UI_OLED_display(u8g2_t *u8g2, int8_t ui_root)
             break;
         case 3://指南针
             UI_Top_info(u8g2);
-            UI_Compass_display(u8g2, &qmc6309);
+            UI_Compass_display(u8g2, qmc6309.heading);
             break;
         default:
             break;

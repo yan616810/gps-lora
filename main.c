@@ -153,7 +153,8 @@ int main(void)
     GPIO_Init(GPIOC, &GPIO_InitStructure);
     GPIO_WriteBit(GPIOC, GPIO_Pin_13, Bit_SET); // Set PC13 high to turn on the power
 /*usart1连接到CH340初始化*/
-    usart1_init();
+	LoRa_init(9600, 9600);
+    // usart1_init();
     printf("USART1 initialized successfully!\r\n");
 /*按键初始化*/
     key_init();
@@ -196,6 +197,17 @@ int main(void)
 		u8g2_ClearBuffer(&u8g2);
 		sprintf(u8g2_buf, "BMP280 Not Init-%d",error_code);
 		u8g2_DrawStr(&u8g2,0,0,u8g2_buf);
+		
+		// u8g2_SetFont(&u8g2,u8g2_font_boutique_bitmap_9x9_t_all);
+		u8g2_SetFont(&u8g2,u8g2_font_helvB08_tr);
+    	u8g2_SetFontPosBaseline(&u8g2);
+    	u8g2_SetFontMode(&u8g2,0);  //显示字体的背景，不透明
+    	u8g2_SetDrawColor(&u8g2,1);
+		
+		u8g2_DrawBox(&u8g2,0,29,128,15);
+		u8g2_SetDrawColor(&u8g2,0);
+		// u8g2_DrawStr(&u8g2,3*7,3*10,":(按任意键关机:(");
+		u8g2_DrawStr(&u8g2,7,40,"Press any key to OFF:(");
 		u8g2_SendBuffer(&u8g2);
 		while(1)//按任意键关机
 		{
@@ -213,6 +225,16 @@ int main(void)
 		u8g2_ClearBuffer(&u8g2);
 		sprintf(u8g2_buf, "QMC6309 Not Init-%d",error_code);
 		u8g2_DrawStr(&u8g2,0,0,u8g2_buf);
+
+		u8g2_SetFont(&u8g2,u8g2_font_helvB08_tr);
+    	u8g2_SetFontPosBaseline(&u8g2);
+    	u8g2_SetFontMode(&u8g2,0);  //显示字体的背景，不透明
+    	u8g2_SetDrawColor(&u8g2,1);
+		
+		u8g2_DrawBox(&u8g2,0,29,128,15);
+		u8g2_SetDrawColor(&u8g2,0);
+		u8g2_DrawStr(&u8g2,7,40,"Press any key to OFF:(");
+
 		u8g2_SendBuffer(&u8g2);
 		while(1)//按任意键关机
 		{
@@ -226,7 +248,7 @@ int main(void)
     timer6_init();
     for(;;)
     {
-        rx_data_proc();
+        // rx_data_proc();
         task_proc();
     }
     // GPIO_WriteBit(GPIOC, GPIO_Pin_13, Bit_RESET); // Set PC13 Low

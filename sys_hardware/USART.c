@@ -127,19 +127,19 @@ void timer3_init(void)
 	//   return ch;
 	// }
 
-	void USART1_IRQHandler(void)
-	{
-		if(USART_GetITStatus(USART1,USART_IT_RXNE) == SET)
-		{
-			if(rx_buff_num_used < usart_rx_buff_size-1) //-1是为了保证缓冲区满了之后，最后一位是'\0'终止符;
-			{
-				rx_buff[rx_buff_num_used++] = USART_ReceiveData(USART1);
-				rx_flag=1;
-				TIM3->CNT=0;
-			}
-			else USART_ReceiveData(USART1);//缓冲区满了后，读接收寄存器用于清除RXNE标志位;
-		}
-	}
+	// void USART1_IRQHandler(void)
+	// {
+	// 	if(USART_GetITStatus(USART1,USART_IT_RXNE) == SET)
+	// 	{
+	// 		if(rx_buff_num_used < usart_rx_buff_size-1) //-1是为了保证缓冲区满了之后，最后一位是'\0'终止符;
+	// 		{
+	// 			rx_buff[rx_buff_num_used++] = USART_ReceiveData(USART1);
+	// 			rx_flag=1;
+	// 			TIM3->CNT=0;
+	// 		}
+	// 		else USART_ReceiveData(USART1);//缓冲区满了后，读接收寄存器用于清除RXNE标志位;
+	// 	}
+	// }
 #elif (usartx ==2)
 	void usart2_init(void)
 	{

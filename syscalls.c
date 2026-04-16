@@ -84,11 +84,8 @@ void * _sbrk (ptrdiff_t incr)
 
 int _write(int fd, const void *ptr, size_t len) {
     if (fd == STDOUT_FILENO || fd == STDERR_FILENO) { // stdout=1, stderr=2
-        // const char *buf = (const char *)ptr;
-        usart1_send_Hex((uint8_t *)ptr, len);
-        // for (size_t i = 0; i < len; i++) {
-        //     usart2_send_Char(buf[i]); // 你的 UART 发送函数
-        // }
+        // usart1_send_Hex((uint8_t *)ptr, len);
+        (void)ptr; (void)len; // 消除未使用参数的警告
         return len; // 返回写入的字节数
     }
     errno = EBADF; // 不支持其他文件描述符
