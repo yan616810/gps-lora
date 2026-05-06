@@ -176,13 +176,15 @@ void key_task(void)
 				break;
 			case 4://互联界面
 				if(key_value == 4){
-
+					// ui_lora = 1;//切换到界面二
+					lora_ui_last_node_display_2_flag=1;//切换上一个节点的显示二详细界面
 				}else if(key_value == 3){
-	
+					ui_lora = 1;//切换到lora子界面二 
 				}else if(key_value == 2){
-				
+					// ui_lora = 1;//切换到界面二
+					lora_ui_next_node_display_2_flag=1;//切换下一个节点的显示二详细界面
 				}else if(key_value == 'D'){
-	
+					ui_lora = 0;//切换到界面一
 				}else if(key_value == 'L'){
 					ui_switch_window_flag=1;//弹出切换界面
 				}

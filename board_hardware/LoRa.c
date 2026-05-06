@@ -166,7 +166,7 @@ void UART1_IRQHandler_RXNE_callback(void)
 
 // void LoRa_bridge_poll(void)
 // {
-//     if (USART_GetFlagStatus(USART1, USART_FLAG_RXNE) == SET)u8g2_SetFontPosBaseline
+//     if (USART_GetFlagStatus(USART1, USART_FLAG_RXNE) == SET)
 //     {
 //         uint8_t ch = USART_ReceiveData(USART1);
 //         LoRa_usart2_send_Char(ch);

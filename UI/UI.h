@@ -81,7 +81,18 @@ static const unsigned char image_menu_arrow_down_right_bits[] = {0x08,0x0c,0x0e,
 static const unsigned char image_menu_arrow_up_left_bits[] = {0x0f,0x07,0x03,0x01};
 static const unsigned char image_menu_arrow_up_right_bits[] = {0x0f,0x0e,0x0c,0x08};
 
+//LoRa共享位置界面
+typedef struct LoRa_location_info
+{
+    uint8_t  LoRa_id;      // LoRa设备ID
+    int32_t  latitude;     // 纬度，放大1000000倍后的整数
+    int32_t  longitude;    // 经度，放大1000000倍后的整数
+    uint32_t pressure_pa;  // 气压，单位Pa - 用来计算相对高度
+    uint16_t speed;        // 速度，单位放大10倍，精确到0.1m/s
+}LoRa_node_info_t;
 
+//lora界面的"开始导航"图标42*9
+static const unsigned char image_lora_location[] = {0xfe,0x20,0x82,0x3f,0x84,0x00,0x44,0x20,0x82,0x20,0xfe,0x03,0x44,0x78,0x89,0x3f,0x12,0x00,0x44,0x50,0x8f,0x40,0xd6,0x01,0xff,0x49,0x00,0x7f,0x52,0x01,0x44,0x30,0x0f,0x10,0x5f,0x01,0x44,0x20,0xc9,0x7f,0x52,0x01,0x44,0x50,0x09,0x11,0x36,0x01,0x42,0x48,0x0f,0x1a,0x1a,0x03};
 
 void UI_GPS_display_earth_data_proc(void);
 void UI_GPS_display_earth_no_data(u8g2_t *u8g2);
@@ -89,7 +100,6 @@ void UI_GPS_display_earth_txt(u8g2_t *u8g2);
 void UI_GPS_display_earth_image(u8g2_t *u8g2);
 
 void UI_BPM280_data_proc(void);
-void UI_battery(u8g2_t *u8g2, u8g2_uint_t x, u8g2_uint_t y, uint8_t is_charge, uint8_t power);
 void UI_Top_info(u8g2_t *u8g2);
 void UI_HOME(u8g2_t *u8g2);
 

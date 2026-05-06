@@ -25,7 +25,7 @@ extern void rx_data_procCallback(uint16_t cmd_num);//回调函数，处理接收
 #endif
 
 //如何去重？
-const char *rx_command[]={"cmd1","cmd2","cmd3","help","YLAD"};//比定义二维数组的优点是当字符串长度不一致时更节省存储空间
+const char *rx_command[]={"/cmd1","/cmd2","/cmd3","/help","/YLAD"};//比定义二维数组的优点是当字符串长度不一致时更节省存储空间
 size_t cmd_count = sizeof(rx_command) / sizeof(rx_command[0]);
 
 

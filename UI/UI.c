@@ -1,6 +1,10 @@
 #include "UI.h"
 #include <math.h>
 
+/* ─── 角度转弧度 ─── */
+#define DEG2RAD(d) ((d) * 3.14159265f / 180.0f)
+
+
 /*GPS*/
 char     var_sign_lat  = '+';  //纬度符号，默认正号不显示
 uint16_t int_part_lat  = 0;    //纬度整数部分，单位是度 
@@ -181,9 +185,9 @@ void UI_BPM280_data_proc(void)
 		// altitude_frac_part = temp % 10;//小数部分
 }
 
-uint16_t LoRa_num=16;
+uint16_t LoRa_num=1;
 uint8_t is_charge=0;
-uint8_t Power=50;//电量剩余50%
+uint8_t Power=87;//电量剩余87%
 
 static const char * const wday_data[]={"Sun","Mon","Tue","Wed","Thur","Fri","Sat"};
 
@@ -201,7 +205,7 @@ static const unsigned char* const battery_icons[] = {
     image_Battery_90_100_bits,    // 索引 9：90~100% 
     image_Battery_charge_bits     // 索引 10：充电中
 };
-void UI_battery(u8g2_t *u8g2, u8g2_uint_t x, u8g2_uint_t y, uint8_t is_charge, uint8_t power)//(计划优化),使用指针数组来统一管理！！！
+static void UI_battery(u8g2_t *u8g2, u8g2_uint_t x, u8g2_uint_t y, uint8_t is_charge, uint8_t power)//(计划优化),使用指针数组来统一管理！！！
 {
     if(is_charge){
         u8g2_DrawXBMP(u8g2, x, y, 14, 8, battery_icons[10]);
@@ -419,9 +423,6 @@ void UI_switch(u8g2_t *u8g2, int8_t ui_root)//ui_root:当前界面; direction: 1
 #define COMPASS_LABEL_R  18    // 字符 NESW 到圆心的距离
 #define COMPASS_TICK_R   (COMPASS_R - 1)  // 刻度起点（贴内壁）
 
-/* ─── 角度转弧度 ─── */
-#define DEG2RAD(d) ((d) * 3.14159265f / 180.0f)
-
 /* ─── 辅助：将角度+半径转成屏幕坐标 ───
  * angle_deg：以"正上方=0°、顺时针为正"的度数
  */
@@ -548,6 +549,172 @@ void UI_Compass_display(u8g2_t *u8g2, int16_t qmc6309_heading)
     
 }
 
+/*****************************---LoRa共享位置界面---************************************** */
+#define LoRa_CX       26    // 圆心X（屏幕左半边）
+#define LoRa_CY       37    // 圆心Y（128x64屏幕垂直居中）
+#define LoRa_R        25    // 总揽外圆半径
+uint8_t Online_node=1; //从lora层获取上线节点数
+LoRa_node_info_t node[16]={0}; // 模拟16个LoRa节点的信息，实际应用中可以根据需要调整数量
+void init_node_info() {
+    for (uint8_t i = 0; i < 16; i++) {
+        node[i].LoRa_id = i + 1;
+        node[i].latitude = 37422123 + i * 1000;   // 模拟不同的纬度
+        node[i].longitude = -12208400 + i * 1000; // 模拟不同的经度
+        node[i].pressure_pa = 101325 + i * 10;    // 模拟不同的气压
+        node[i].speed = 50 + i * 5;              // 模拟不同的速度
+    }
+}
+
+//返回比例尺，即每米对应的像素数；根据所有节点的位置求出全览图的比例尺即最远节点距离中心点的距离），以便在全览图中正确显示所有节点的位置
+static double lora_out_max_ditance_Coefficient(void)
+{
+    //查找node数组中距离中心点（LoRa_CX, LoRa_CY）最远的节点，并输出其距离
+    // double max_distance = 0.0;
+    // for (uint8_t i = 0; i < Online_node; i++) {
+    
+    // }
+    
+    //先假设最远距离为1000米，实际应用中可以根据节点发送来的经纬度进行实时计算
+    double max_distance = 1000.0;
+    return LoRa_R/max_distance; // 返回比例尺，即每米对应的像素数
+}
+static void LoRa_draw_node(u8g2_t *u8g2, double coefficient, double bearing, double distance) {
+    // 这里可以根据节点信息计算在屏幕上的位置，示例中简单地将经纬度映射到屏幕坐标
+    uint16_t x = LoRa_CX + coefficient * (distance * sin(DEG2RAD(bearing))); // 根据方位角和距离计算x坐标
+    uint16_t y = LoRa_CY - coefficient * (distance * cos(DEG2RAD(bearing))); // 根据方位角和距离计算y坐标
+    u8g2_DrawPixel(u8g2, x, y); // 绘制节点为一个像素点
+}
+static uint8_t get_digit_len(uint8_t n)
+{
+    if (n == 0) return 1;
+    int count = 0;
+    while (n != 0) {
+        n /= 10;
+        count++;
+    }
+    return count;
+}
+static void UI_LoRa_location_display_1(u8g2_t *u8g2, LoRa_node_info_t *node)
+{
+    (void)node; // 暂时未使用节点信息，后续可以根据需要进行绘制
+
+    u8g2_SetFontPosBaseline(u8g2);
+    u8g2_SetFontMode(u8g2, 0);   // 不透明背景
+    u8g2_SetDrawColor(u8g2, 1);
+
+    // 绘制框架
+    u8g2_DrawFrame(u8g2, 0, 11, 53, 53);
+    u8g2_DrawFrame(u8g2, 52, 10, 76, 54);
+    // u8g2_DrawLine(u8g2, 52, 49, 127, 49);
+    // u8g2_DrawXBMP(u8g2, 4, 15, 4, 4, image_menu_arrow_up_left_bits);
+    // u8g2_DrawXBMP(u8g2, 45, 15, 4, 4, image_menu_arrow_up_right_bits);
+    // u8g2_DrawXBMP(u8g2, 45, 56, 4, 4, image_menu_arrow_down_right_bits);
+    // u8g2_DrawXBMP(u8g2, 4, 56, 4, 4, image_menu_arrow_down_left_bits);
+    
+    /* ── 1. 外圆 ── */
+    // u8g2_DrawCircle(u8g2, LoRa_CX, LoRa_CY, LoRa_R, U8G2_DRAW_ALL);
+    
+    /* ── 2. 圆心小点 ── */
+    u8g2_DrawPixel(u8g2, LoRa_CX, LoRa_CY);
+//全览图中的像素点代表一个节点
+    double coeffi = lora_out_max_ditance_Coefficient(); // 计算每个像素代表的实际距离（米/像素）
+    // LoRa_draw_node(u8g2, coeffi, 45.0, 856.0);
+    // LoRa_draw_node(u8g2, coeffi, 90.0, 856.0);
+    // LoRa_draw_node(u8g2, coeffi, 67.0, 256.0);
+    LoRa_draw_node(u8g2, coeffi, 145.0, 956.0);
+    // LoRa_draw_node(u8g2, coeffi, 245.0, 556.0);
+
+    /* ── 3. 右侧信息区：──
+     * 利用屏幕右半部分显示辅助信息
+     */
+    u8g2_SetFontPosBaseline(u8g2);
+    u8g2_SetFont(u8g2, u8g2_font_6x12_tr);
+    u8g2_DrawStr(u8g2, 58, 20, "Online node");
+    // 居中的设备数
+    u8g2_SetFont(u8g2, u8g2_font_profont22_tf);
+    uint8_t Online_node_len = get_digit_len(Online_node);
+    // 根据数字长度调整显示位置
+    uint16_t x_pos = 85 - (Online_node_len - 1) * 6; // 每个数字宽12像素
+    sprintf(u8g2_buf, "%d", Online_node);
+    u8g2_DrawStr(u8g2, x_pos, 39, u8g2_buf);
+
+    // // 绘制文本信息
+    // u8g2_SetFont(u8g2, u8g2_font_5x7_tn);
+    // sprintf(u8g2_buf, "ID: %d", node_info->LoRa_id);
+    // u8g2_DrawStr(u8g2, 20, 12, u8g2_buf);
+    // sprintf(u8g2_buf, "Lat: %.6f", node_info->latitude / 1000000.0);
+    // u8g2_DrawStr(u8g2, 20, 24, u8g2_buf);
+    // sprintf(u8g2_buf, "Lon: %.6f", node_info->longitude / 1000000.0);
+    // u8g2_DrawStr(u8g2, 20, 36, u8g2_buf);
+    // sprintf(u8g2_buf, "P: %d Pa", node_info->pressure_pa);
+    // u8g2_DrawStr(u8g2, 20, 48, u8g2_buf);
+    // sprintf(u8g2_buf, "S: %.1f m/s", node_info->speed / 10.0);
+    // u8g2_DrawStr(u8g2, 20, 60, u8g2_buf);
+}
+static void LoRa_draw_node_with_Rectangle(u8g2_t *u8g2, double coefficient, double bearing, double distance) {
+    // 这里可以根据节点信息计算在屏幕上的位置，示例中简单地将经纬度映射到屏幕坐标
+    uint16_t x = LoRa_CX + coefficient * (distance * sin(DEG2RAD(bearing))); // 根据方位角和距离计算x坐标
+    uint16_t y = LoRa_CY - coefficient * (distance * cos(DEG2RAD(bearing))); // 根据方位角和距离计算y坐标
+    u8g2_DrawPixel(u8g2, x, y); // 绘制节点为一个像素点
+    u8g2_DrawFrame(u8g2, x-2, y-2, 5, 5); // 在节点周围绘制一个5x5的矩形框
+}
+
+static void UI_LoRa_location_display_2(u8g2_t *u8g2, LoRa_node_info_t *node)
+{
+    (void)node; // 暂时未使用节点信息，后续可以根据需要进行绘制
+
+    u8g2_SetFontPosBaseline(u8g2);
+    u8g2_SetFontMode(u8g2, 0);   // 不透明背景
+    u8g2_SetDrawColor(u8g2, 1);
+
+    // 绘制框架
+    u8g2_DrawFrame(u8g2, 0, 11, 53, 53);
+    u8g2_DrawFrame(u8g2, 52, 10, 76, 54);
+    // u8g2_DrawLine(u8g2, 52, 49, 127, 49);
+    // u8g2_DrawXBMP(u8g2, 4, 15, 4, 4, image_menu_arrow_up_left_bits);
+    // u8g2_DrawXBMP(u8g2, 45, 15, 4, 4, image_menu_arrow_up_right_bits);
+    // u8g2_DrawXBMP(u8g2, 45, 56, 4, 4, image_menu_arrow_down_right_bits);
+    // u8g2_DrawXBMP(u8g2, 4, 56, 4, 4, image_menu_arrow_down_left_bits);
+    //右侧信息区的框架
+    u8g2_DrawLine(u8g2, 53, 24, 126, 24);
+    u8g2_DrawLine(u8g2, 53, 36, 126, 36);
+    u8g2_DrawLine(u8g2, 52, 48, 127, 48);
+
+    /* ── 1. 外圆 ── */
+    // u8g2_DrawCircle(u8g2, LoRa_CX, LoRa_CY, LoRa_R, U8G2_DRAW_ALL);
+    
+    /* ── 2. 圆心小点 ── */
+    u8g2_DrawPixel(u8g2, LoRa_CX, LoRa_CY);
+//全览图中的像素点代表一个节点，并用方框框出
+    double coeffi = lora_out_max_ditance_Coefficient(); // 计算每个像素代表的实际距离（米/像素）
+    // LoRa_draw_node(u8g2, coeffi, 45.0, 856.0);
+    // LoRa_draw_node(u8g2, coeffi, 90.0, 856.0);
+    // LoRa_draw_node(u8g2, coeffi, 67.0, 256.0);
+    LoRa_draw_node_with_Rectangle(u8g2, coeffi, 145.0, 956.0);
+    // LoRa_draw_node(u8g2, coeffi, 245.0, 556.0);
+
+    /* ── 3. 右侧信息区：──
+     * 利用屏幕右半部分显示辅助信息
+     */
+    u8g2_SetFontPosBaseline(u8g2);
+    u8g2_SetFont(u8g2, u8g2_font_6x12_tf);
+uint16_t temp_bearing = 325; // 从lora层获取的节点方位角，单位为度
+    sprintf(u8g2_buf, "bearing:%d%c", temp_bearing, 176);
+    u8g2_DrawStr(u8g2, 55, 21, u8g2_buf);
+uint32_t temp_distance = 25; // 从lora层获取的节点距离，单位为米
+    sprintf(u8g2_buf, "dist:%ldm", temp_distance);
+    u8g2_DrawStr(u8g2, 55, 34, u8g2_buf);
+int32_t temp_bmp280_RH = -1; // 从lora层获取的节点bmp280测量的相对高度，单位为米
+    sprintf(u8g2_buf, "RH:%ldm", temp_bmp280_RH);
+    u8g2_DrawStr(u8g2, 55, 46, u8g2_buf);
+//开始导航按钮
+    u8g2_DrawRBox(u8g2, 64, 50, 51, 12, 4);
+    u8g2_SetBitmapMode(u8g2, 1);
+    u8g2_SetDrawColor(u8g2, 2);
+    u8g2_DrawXBMP(u8g2, 68, 51, 42, 9, image_lora_location);
+
+}
+
 /****************************************************************** */
 
 void UI_OLED_display(u8g2_t *u8g2, int8_t ui_root)
@@ -569,6 +736,17 @@ void UI_OLED_display(u8g2_t *u8g2, int8_t ui_root)
         case 3://指南针
             UI_Top_info(u8g2);
             UI_Compass_display(u8g2, qmc6309.heading);
+            break;
+        case 4://LoRa位置全览图
+            UI_Top_info(u8g2);
+            if(ui_lora == 0)
+            {
+                UI_LoRa_location_display_1(u8g2, &node[0]);
+            }
+            else if(ui_lora == 1)
+            {
+                UI_LoRa_location_display_2(u8g2, &node[0]);
+            }
             break;
         default:
             break;

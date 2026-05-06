@@ -33,6 +33,10 @@ Type_Struct_Timezone_and_UTCxTime Struct_RTC={0};//作用：1.用于首次初始
 
 int8_t ui_root=0;//家
 uint8_t ui_switch_window_flag=0;//0:关闭切换界面 1:弹出切换界面
+/*LoRa界面及其子界面*/
+int8_t ui_lora=0;//LoRa位置全览图界面内的子界面，0是默认的全览图，1是显示具体节点信息
+uint8_t lora_ui_last_node_display_2_flag=0;//0表示不触发显示节点详细信息；1表示传给LORA_UI触发函数内部切换一个节点详细信息节点来显示
+uint8_t lora_ui_next_node_display_2_flag=0;//0表示不触发显示节点详细信息
 
 
 /**
