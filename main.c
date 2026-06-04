@@ -147,6 +147,11 @@ void task_proc(void)
 		OLED_cnt=0;
 		UI_OLED_display(&u8g2, ui_root);
 	}
+	if(lora_cnt==100)
+	{
+		lora_cnt=0;
+		LoRa_proto_task(&lora, &gps, &bmp280, &Struct_RTC);
+	}
 }
 
 int main(void)
@@ -160,24 +165,28 @@ int main(void)
     };
     GPIO_Init(GPIOC, &GPIO_InitStructure);
     GPIO_WriteBit(GPIOC, GPIO_Pin_13, Bit_SET); // Set PC13 high to turn on the power
-/*usart1连接到CH340初始化*/
-	LoRa_init(9600, 9600);
-    // usart1_init();
-    printf("USART1 initialized successfully!\r\n");
+// /*usart1连接到CH340初始化*/
+// 	LoRa_init(9600, 9600);
+//     // usart1_init();
+//     printf("USART1 initialized successfully!\r\n");
 /*LoRa*/
-	lora.LoRa_node_online_flag[2]=1;//模拟测试，默认节点2在线
-	lora.node[2].LoRa_id=2;
-	lora.node[2].latitude=36726339;
-	lora.node[2].longitude=115529936;
-	lora.node[2].speed=100;
-	lora.node[2].pressure_pa=101325;
+	// lora.LoRa_node_online_flag[2]=1;//模拟测试，默认节点2在线
+	// lora.node[2].LoRa_id=2;
+	// lora.node[2].latitude=36726339;
+	// lora.node[2].longitude=115529936;
+	// lora.node[2].speed=100;
+	// lora.node[2].pressure_pa=101325;
 
-	lora.LoRa_node_online_flag[5]=1;//模拟测试，默认节点5在线
-	lora.node[5].LoRa_id=5;
-	lora.node[5].latitude=36720339;
-	lora.node[5].longitude=115536936;
-	lora.node[5].speed=40;
-	lora.node[5].pressure_pa=91325;
+	// lora.LoRa_node_online_flag[5]=1;//模拟测试，默认节点5在线
+	// lora.node[5].LoRa_id=5;
+	// lora.node[5].latitude=36720339;
+	// lora.node[5].longitude=115536936;
+	// lora.node[5].speed=40;
+	// lora.node[5].pressure_pa=91325;
+
+
+	LoRa_init(9600, 9600);
+	LoRa_proto_init(&lora);
 /*按键初始化*/
     key_init();
 /*RTC*/

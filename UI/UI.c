@@ -697,6 +697,7 @@ static uint8_t LoRa_draw_all_online_nodes_with_Rectangle_can_switch(u8g2_t *u8g2
 
 //切换框选节点逻辑
     if(online_node_count == 0) return 1; // 如果没有在线节点，直接返回，不进行框选
+    if(online_nodes_id_temp_index >= online_node_count) online_nodes_id_temp_index = 0; // 如果索引超过在线节点数量，重置为0；这行代码主要是为了防止在在线节点数量发生变化时，索引超出范围；例如，如果之前有3个在线节点，索引为2（第三个节点），后来在线节点减少到2个，那么索引2就超出范围了；通过这行代码，可以确保索引始终在有效范围内，避免访问非法内存地址；如果在线节点数量增加了，这行代码也能确保索引仍然有效；
     if(first_time_flag) { // 首次进入界面，默认框选ID号最小的节点
         node_id_with_Rectangle = online_nodes_id_temp[0]; // 获取第一个在线节点的ID
         first_time_flag = 0; // 取消首次进入标志
@@ -744,10 +745,6 @@ static void UI_LoRa_location_display_2(u8g2_t *u8g2, LoRa_t *lora, GPS_t *gps)
     // 绘制框架
     u8g2_DrawFrame(u8g2, 0, 11, 53, 53);
     u8g2_DrawFrame(u8g2, 52, 10, 76, 54);
-    //右侧信息区的框架
-    u8g2_DrawLine(u8g2, 53, 24, 126, 24);
-    u8g2_DrawLine(u8g2, 53, 36, 126, 36);
-    u8g2_DrawLine(u8g2, 52, 48, 127, 48);
 
     /* ── 1. 外圆 ── */
     // u8g2_DrawCircle(u8g2, LoRa_CX, LoRa_CY, LoRa_R, U8G2_DRAW_ALL);
@@ -779,6 +776,11 @@ static void UI_LoRa_location_display_2(u8g2_t *u8g2, LoRa_t *lora, GPS_t *gps)
         /* ── 3. 右侧信息区：──
          * 利用屏幕右半部分显示辅助信息
          */
+        //右侧信息区的框架
+        u8g2_DrawLine(u8g2, 53, 24, 126, 24);
+        u8g2_DrawLine(u8g2, 53, 36, 126, 36);
+        u8g2_DrawLine(u8g2, 52, 48, 127, 48);
+
         u8g2_SetFontPosBaseline(u8g2);
         u8g2_SetFont(u8g2, u8g2_font_6x12_tf);
         sprintf(u8g2_buf, "bearing:%d%c", (uint16_t)temp_bearing, 176);
