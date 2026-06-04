@@ -4,6 +4,35 @@
 #include <stdint.h>
 #include "stm32f10x.h"
 
+
+#define LORA_NODE_MAX 16 // 最多支持的节点数
+
+
+//LoRa节点的详细信息
+typedef struct LoRa_location_info
+{
+    uint8_t  LoRa_id;      // LoRa设备ID
+    uint16_t speed;        // 速度，单位放大10倍，精确到0.1m/s
+    int32_t  latitude;     // 纬度，放大1000000倍后的整数
+    int32_t  longitude;    // 经度，放大1000000倍后的整数
+    uint32_t pressure_pa;  // 气压，单位Pa - 用来计算相对高度
+}LoRa_node_info_t;
+
+//LoRa设备的主结构体，包含所有节点信息和在线状态
+typedef struct LoRa{
+    uint8_t          LoRa_node_online_flag[LORA_NODE_MAX];  // 0表示离线，1表示在线
+    LoRa_node_info_t node[LORA_NODE_MAX];                   // 存储接收到的所有节点信息
+    //每次接收到新报文后，进行数据处理得到方位和距离,相对高度；在5s内没有接收到该节点的新报文，就把该节点的在线状态置为离线；UI界面根据在线状态来决定是否显示该节点；
+// //OLED使用
+//     double LoRa_node_bearing[LORA_NODE_MAX];  // 每个节点的方位角，单位为度
+//     double LoRa_node_distance[LORA_NODE_MAX]; // 每个节点的距离，单位为米
+//     int32_t LoRa_node_RH[LORA_NODE_MAX];      // 每个节点的相对高度，单位为米，正数表示高于我，负数表示低于我
+}LoRa_t;
+
+
+uint8_t LoRa_get_nodes_num(LoRa_t *lora); // 获取在线节点数量
+
+
 /**
  * @brief Initialize USART1 (PC side) and USART2 (LoRa side) for transparent forwarding.
  * @param baud1 USART1 baud rate

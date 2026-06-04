@@ -43,11 +43,13 @@ extern BMP280_t bmp280;                // 全局 BMP280 实例
 extern QMC6309_t qmc6309;
 /*RTC*/
 extern Type_Struct_Timezone_and_UTCxTime Struct_RTC;
+/*LoRa*/
+extern LoRa_t lora; // 全局 LoRa 实例，初始化为0
 
 
 extern int8_t ui_root;//家
 extern uint8_t ui_switch_window_flag;
-extern int8_t ui_lora;//LoRa位置全览图界面内的子界面，0是默认的全览图，1是显示具体节点信息
+extern int8_t ui_lora;//LoRa位置全览图界面内的子界面，0是默认的全览图，1是显示具体节点信息，2显示该节点的导航界面
 extern uint8_t lora_ui_last_node_display_2_flag;
 extern uint8_t lora_ui_next_node_display_2_flag;
 

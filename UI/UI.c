@@ -1,5 +1,6 @@
 #include "UI.h"
 #include <math.h>
+#include <lwgps.h>
 
 /* ─── 角度转弧度 ─── */
 #define DEG2RAD(d) ((d) * 3.14159265f / 180.0f)
@@ -185,7 +186,6 @@ void UI_BPM280_data_proc(void)
 		// altitude_frac_part = temp % 10;//小数部分
 }
 
-uint16_t LoRa_num=1;
 uint8_t is_charge=0;
 uint8_t Power=87;//电量剩余87%
 
@@ -241,7 +241,7 @@ void UI_Top_info(u8g2_t *u8g2)
         u8g2_DrawStr(u8g2, 21, 9, u8g2_buf);
     // }
     //LoRa数
-    sprintf(u8g2_buf,"%-3d",LoRa_num);
+    sprintf(u8g2_buf,"%-3d",LoRa_get_nodes_num(&lora));
     u8g2_DrawStr(u8g2, 66, 9, u8g2_buf);
     //电量数
     sprintf(u8g2_buf,"%-3d",Power);
@@ -552,37 +552,54 @@ void UI_Compass_display(u8g2_t *u8g2, int16_t qmc6309_heading)
 /*****************************---LoRa共享位置界面---************************************** */
 #define LoRa_CX       26    // 圆心X（屏幕左半边）
 #define LoRa_CY       37    // 圆心Y（128x64屏幕垂直居中）
-#define LoRa_R        25    // 总揽外圆半径
-uint8_t Online_node=1; //从lora层获取上线节点数
-LoRa_node_info_t node[16]={0}; // 模拟16个LoRa节点的信息，实际应用中可以根据需要调整数量
-void init_node_info() {
-    for (uint8_t i = 0; i < 16; i++) {
-        node[i].LoRa_id = i + 1;
-        node[i].latitude = 37422123 + i * 1000;   // 模拟不同的纬度
-        node[i].longitude = -12208400 + i * 1000; // 模拟不同的经度
-        node[i].pressure_pa = 101325 + i * 10;    // 模拟不同的气压
-        node[i].speed = 50 + i * 5;              // 模拟不同的速度
-    }
-}
+#define LoRa_R        25    // 总览外圆半径
 
 //返回比例尺，即每米对应的像素数；根据所有节点的位置求出全览图的比例尺即最远节点距离中心点的距离），以便在全览图中正确显示所有节点的位置
-static double lora_out_max_ditance_Coefficient(void)
+static double lora_out_max_ditance_Coefficient(LoRa_t *lora, GPS_t *gps)
 {
-    //查找node数组中距离中心点（LoRa_CX, LoRa_CY）最远的节点，并输出其距离
-    // double max_distance = 0.0;
-    // for (uint8_t i = 0; i < Online_node; i++) {
-    
-    // }
-    
-    //先假设最远距离为1000米，实际应用中可以根据节点发送来的经纬度进行实时计算
-    double max_distance = 1000.0;
+    double max_distance = 1.0; // 初始化最大距离为1米，避免除以零的情况
+
+    uint8_t Online_node = LoRa_get_nodes_num(lora);
+    if(Online_node == 0) return 1.0; // 如果没有在线节点，默认比例尺为1.0（每米对应1像素），这样可以避免除以零的情况，并且在没有节点时，屏幕上不会显示任何节点，保持空白状态；
+
+    for(uint8_t i = 0; i < LORA_NODE_MAX; i++) {
+        if (lora->LoRa_node_online_flag[i] == 1) { // 只考虑在线节点
+            // 根据节点的经纬度计算距离
+            double distance;
+            lwgps_distance_bearing(
+                gps->lwgps_handle.latitude, gps->lwgps_handle.longitude,
+                lora->node[i].latitude/1000000.0, lora->node[i].longitude/1000000.0,
+                &distance, NULL // 这里不需要方位角，所以传入NULL
+            );
+            if (distance > max_distance) {
+                max_distance = distance;
+            }
+        }
+    }
+
     return LoRa_R/max_distance; // 返回比例尺，即每米对应的像素数
 }
+//传入一个节点的方位角度和距离米，可以再OLED上绘制出一个像素点
 static void LoRa_draw_node(u8g2_t *u8g2, double coefficient, double bearing, double distance) {
     // 这里可以根据节点信息计算在屏幕上的位置，示例中简单地将经纬度映射到屏幕坐标
     uint16_t x = LoRa_CX + coefficient * (distance * sin(DEG2RAD(bearing))); // 根据方位角和距离计算x坐标
     uint16_t y = LoRa_CY - coefficient * (distance * cos(DEG2RAD(bearing))); // 根据方位角和距离计算y坐标
     u8g2_DrawPixel(u8g2, x, y); // 绘制节点为一个像素点
+}
+//传入一个LoRa句柄，在OLED上显示该LoRa设备所接收到的所有在线节点，以像素点的形式
+static void LoRa_draw_all_online_nodes(u8g2_t *u8g2, double coefficient, LoRa_t *lora, GPS_t *gps) {
+    for (uint8_t i = 0; i < LORA_NODE_MAX; i++) {
+        if (lora->LoRa_node_online_flag[i] == 1) { // 只绘制在线节点
+            // 根据节点的经纬度计算方位角和距离
+            double bearing, distance;
+            lwgps_distance_bearing(
+                gps->lwgps_handle.latitude, gps->lwgps_handle.longitude,
+                lora->node[i].latitude/1000000.0, lora->node[i].longitude/1000000.0,
+                &distance, &bearing
+            );
+            LoRa_draw_node(u8g2, coefficient, bearing, distance);
+        }
+    }
 }
 static uint8_t get_digit_len(uint8_t n)
 {
@@ -594,10 +611,15 @@ static uint8_t get_digit_len(uint8_t n)
     }
     return count;
 }
-static void UI_LoRa_location_display_1(u8g2_t *u8g2, LoRa_node_info_t *node)
+/**
+ * @brief 总览图界面：左侧显示所有在线节点的相对位置，圆心代表当前设备，右侧显示在线节点数量
+ * 
+ * @param u8g2 OLED句柄
+ * @param lora LoRa句柄，包含所有节点的信息及在线状态
+ * @param gps  GPS句柄，用于计算各个在线节点相对于我的设备的方位角和距离
+ */
+static void UI_LoRa_location_display_1(u8g2_t *u8g2, LoRa_t *lora, GPS_t *gps)
 {
-    (void)node; // 暂时未使用节点信息，后续可以根据需要进行绘制
-
     u8g2_SetFontPosBaseline(u8g2);
     u8g2_SetFontMode(u8g2, 0);   // 不透明背景
     u8g2_SetDrawColor(u8g2, 1);
@@ -605,11 +627,6 @@ static void UI_LoRa_location_display_1(u8g2_t *u8g2, LoRa_node_info_t *node)
     // 绘制框架
     u8g2_DrawFrame(u8g2, 0, 11, 53, 53);
     u8g2_DrawFrame(u8g2, 52, 10, 76, 54);
-    // u8g2_DrawLine(u8g2, 52, 49, 127, 49);
-    // u8g2_DrawXBMP(u8g2, 4, 15, 4, 4, image_menu_arrow_up_left_bits);
-    // u8g2_DrawXBMP(u8g2, 45, 15, 4, 4, image_menu_arrow_up_right_bits);
-    // u8g2_DrawXBMP(u8g2, 45, 56, 4, 4, image_menu_arrow_down_right_bits);
-    // u8g2_DrawXBMP(u8g2, 4, 56, 4, 4, image_menu_arrow_down_left_bits);
     
     /* ── 1. 外圆 ── */
     // u8g2_DrawCircle(u8g2, LoRa_CX, LoRa_CY, LoRa_R, U8G2_DRAW_ALL);
@@ -617,40 +634,37 @@ static void UI_LoRa_location_display_1(u8g2_t *u8g2, LoRa_node_info_t *node)
     /* ── 2. 圆心小点 ── */
     u8g2_DrawPixel(u8g2, LoRa_CX, LoRa_CY);
 //全览图中的像素点代表一个节点
-    double coeffi = lora_out_max_ditance_Coefficient(); // 计算每个像素代表的实际距离（米/像素）
-    // LoRa_draw_node(u8g2, coeffi, 45.0, 856.0);
-    // LoRa_draw_node(u8g2, coeffi, 90.0, 856.0);
-    // LoRa_draw_node(u8g2, coeffi, 67.0, 256.0);
-    LoRa_draw_node(u8g2, coeffi, 145.0, 956.0);
-    // LoRa_draw_node(u8g2, coeffi, 245.0, 556.0);
+    if(gps->lwgps_handle.is_valid && gps->lwgps_handle.fix)//报文有效且已解算出定位结果时，才绘制节点；如果没有有效的GPS定位信息，就不绘制节点；因为绘制其他节点需要知道我自己的GPS经纬度才能计算出它相对于我的方位和距离；
+    {
+        double coeffi = lora_out_max_ditance_Coefficient(lora, gps); // 计算每个像素代表的实际距离（像素/米）
+        LoRa_draw_all_online_nodes(u8g2, coeffi, lora, gps);
+    }
+    else {
+        // 如果没有有效的GPS定位信息，显示一个提示信息
+        u8g2_SetDrawColor(u8g2, 1);
+        u8g2_SetFontMode(u8g2, 1);   // 透明背景
+        u8g2_DrawRBox(u8g2, 5, 31, 44, 13, 5);
+        u8g2_SetDrawColor(u8g2, 0);
+        u8g2_DrawStr(u8g2, 11, 41, "NO GPS");
+    }
 
     /* ── 3. 右侧信息区：──
      * 利用屏幕右半部分显示辅助信息
      */
     u8g2_SetFontPosBaseline(u8g2);
+    u8g2_SetDrawColor(u8g2, 1);
     u8g2_SetFont(u8g2, u8g2_font_6x12_tr);
     u8g2_DrawStr(u8g2, 58, 20, "Online node");
     // 居中的设备数
     u8g2_SetFont(u8g2, u8g2_font_profont22_tf);
+    uint8_t Online_node = LoRa_get_nodes_num(lora);
     uint8_t Online_node_len = get_digit_len(Online_node);
     // 根据数字长度调整显示位置
     uint16_t x_pos = 85 - (Online_node_len - 1) * 6; // 每个数字宽12像素
     sprintf(u8g2_buf, "%d", Online_node);
     u8g2_DrawStr(u8g2, x_pos, 39, u8g2_buf);
-
-    // // 绘制文本信息
-    // u8g2_SetFont(u8g2, u8g2_font_5x7_tn);
-    // sprintf(u8g2_buf, "ID: %d", node_info->LoRa_id);
-    // u8g2_DrawStr(u8g2, 20, 12, u8g2_buf);
-    // sprintf(u8g2_buf, "Lat: %.6f", node_info->latitude / 1000000.0);
-    // u8g2_DrawStr(u8g2, 20, 24, u8g2_buf);
-    // sprintf(u8g2_buf, "Lon: %.6f", node_info->longitude / 1000000.0);
-    // u8g2_DrawStr(u8g2, 20, 36, u8g2_buf);
-    // sprintf(u8g2_buf, "P: %d Pa", node_info->pressure_pa);
-    // u8g2_DrawStr(u8g2, 20, 48, u8g2_buf);
-    // sprintf(u8g2_buf, "S: %.1f m/s", node_info->speed / 10.0);
-    // u8g2_DrawStr(u8g2, 20, 60, u8g2_buf);
 }
+
 static void LoRa_draw_node_with_Rectangle(u8g2_t *u8g2, double coefficient, double bearing, double distance) {
     // 这里可以根据节点信息计算在屏幕上的位置，示例中简单地将经纬度映射到屏幕坐标
     uint16_t x = LoRa_CX + coefficient * (distance * sin(DEG2RAD(bearing))); // 根据方位角和距离计算x坐标
@@ -658,11 +672,71 @@ static void LoRa_draw_node_with_Rectangle(u8g2_t *u8g2, double coefficient, doub
     u8g2_DrawPixel(u8g2, x, y); // 绘制节点为一个像素点
     u8g2_DrawFrame(u8g2, x-2, y-2, 5, 5); // 在节点周围绘制一个5x5的矩形框
 }
+static uint8_t LoRa_draw_all_online_nodes_with_Rectangle_can_switch(u8g2_t *u8g2, double coefficient, LoRa_t *lora, GPS_t *gps, double *bearing_return, double *distance_return) {
+    static uint8_t first_time_flag = 1; // 首次进入界面标志
+    static uint8_t online_nodes_id_temp_index = 0;// 初始框选ID号最小的节点
+    static uint8_t node_id_with_Rectangle;// 上面索引所对应的节点ID，即被框选的节点ID
 
-static void UI_LoRa_location_display_2(u8g2_t *u8g2, LoRa_node_info_t *node)
+    static uint8_t online_nodes_id_temp[LORA_NODE_MAX] = {0}; // 将在线节点的ID按从小到大的顺序紧挨着存在该数组
+    uint8_t online_node_count = 0; // 在线节点数量计数器
+    double bearing, distance;
+    for (uint8_t i = 0; i < LORA_NODE_MAX; i++) {
+        if(lora->LoRa_node_online_flag[i] == 1) {
+            online_nodes_id_temp[online_node_count++] = i; // 将在线节点的ID存入临时数组
+
+            // 根据节点的经纬度计算方位角和距离
+            lwgps_distance_bearing(
+                gps->lwgps_handle.latitude, gps->lwgps_handle.longitude,
+                lora->node[i].latitude/1000000.0, lora->node[i].longitude/1000000.0,
+                &distance, &bearing
+            );
+            LoRa_draw_node(u8g2, coefficient, bearing, distance); // 绘制在线节点为一个像素点
+        }
+    }
+
+
+//切换框选节点逻辑
+    if(online_node_count == 0) return 1; // 如果没有在线节点，直接返回，不进行框选
+    if(first_time_flag) { // 首次进入界面，默认框选ID号最小的节点
+        node_id_with_Rectangle = online_nodes_id_temp[0]; // 获取第一个在线节点的ID
+        first_time_flag = 0; // 取消首次进入标志
+    }
+    for(uint8_t i = 0; i < online_node_count; i++) {
+        if(online_nodes_id_temp[i] == node_id_with_Rectangle) { // 找到当前被框选节点在在线节点数组中的位置
+            online_nodes_id_temp_index = i; // 更新索引为当前被框选节点的位置
+            break;
+        }
+    }
+    if(lora_ui_next_node_display_2_flag == 1) { // 如果接收到切换节点的指令
+            online_nodes_id_temp_index++; // 索引加1，切换到下一个在线节点
+            if(online_nodes_id_temp_index >= online_node_count) online_nodes_id_temp_index = 0; // 如果索引超过在线节点数量，重置为0
+            node_id_with_Rectangle = online_nodes_id_temp[online_nodes_id_temp_index]; // 获取当前被框选的节点ID
+            lora_ui_next_node_display_2_flag = 0; // 取消切换节点的指令标志
+        }
+    else if(lora_ui_last_node_display_2_flag == 1) { // 如果接收到切换节点的指令
+            if(online_nodes_id_temp_index == 0) online_nodes_id_temp_index = online_node_count - 1; // 如果索引为0，切换到最后一个在线节点
+            else online_nodes_id_temp_index--; // 索引减1，切换到上一个在线节点
+            node_id_with_Rectangle = online_nodes_id_temp[online_nodes_id_temp_index]; // 获取当前被框选的节点ID
+            lora_ui_last_node_display_2_flag = 0; // 取消切换节点的指令标志
+        }
+
+
+//框选节点
+    lwgps_distance_bearing(
+        gps->lwgps_handle.latitude, gps->lwgps_handle.longitude,
+        lora->node[node_id_with_Rectangle].latitude/1000000.0, lora->node[node_id_with_Rectangle].longitude/1000000.0,
+        &distance, &bearing
+    );
+    LoRa_draw_node_with_Rectangle(u8g2, coefficient, bearing, distance); // 绘制被框选的节点
+
+
+//返回被框选节点的方位角和距离，以便在右侧信息区显示
+    *bearing_return = bearing;
+    *distance_return = distance;
+    return 0; // 成功绘制在线节点并框选一个节点，返回0
+}
+static void UI_LoRa_location_display_2(u8g2_t *u8g2, LoRa_t *lora, GPS_t *gps)
 {
-    (void)node; // 暂时未使用节点信息，后续可以根据需要进行绘制
-
     u8g2_SetFontPosBaseline(u8g2);
     u8g2_SetFontMode(u8g2, 0);   // 不透明背景
     u8g2_SetDrawColor(u8g2, 1);
@@ -670,11 +744,6 @@ static void UI_LoRa_location_display_2(u8g2_t *u8g2, LoRa_node_info_t *node)
     // 绘制框架
     u8g2_DrawFrame(u8g2, 0, 11, 53, 53);
     u8g2_DrawFrame(u8g2, 52, 10, 76, 54);
-    // u8g2_DrawLine(u8g2, 52, 49, 127, 49);
-    // u8g2_DrawXBMP(u8g2, 4, 15, 4, 4, image_menu_arrow_up_left_bits);
-    // u8g2_DrawXBMP(u8g2, 45, 15, 4, 4, image_menu_arrow_up_right_bits);
-    // u8g2_DrawXBMP(u8g2, 45, 56, 4, 4, image_menu_arrow_down_right_bits);
-    // u8g2_DrawXBMP(u8g2, 4, 56, 4, 4, image_menu_arrow_down_left_bits);
     //右侧信息区的框架
     u8g2_DrawLine(u8g2, 53, 24, 126, 24);
     u8g2_DrawLine(u8g2, 53, 36, 126, 36);
@@ -686,27 +755,60 @@ static void UI_LoRa_location_display_2(u8g2_t *u8g2, LoRa_node_info_t *node)
     /* ── 2. 圆心小点 ── */
     u8g2_DrawPixel(u8g2, LoRa_CX, LoRa_CY);
 //全览图中的像素点代表一个节点，并用方框框出
-    double coeffi = lora_out_max_ditance_Coefficient(); // 计算每个像素代表的实际距离（米/像素）
-    // LoRa_draw_node(u8g2, coeffi, 45.0, 856.0);
-    // LoRa_draw_node(u8g2, coeffi, 90.0, 856.0);
-    // LoRa_draw_node(u8g2, coeffi, 67.0, 256.0);
-    LoRa_draw_node_with_Rectangle(u8g2, coeffi, 145.0, 956.0);
-    // LoRa_draw_node(u8g2, coeffi, 245.0, 556.0);
+    if(gps->lwgps_handle.is_valid && gps->lwgps_handle.fix)//报文有效且已解算出定位结果时，才绘制节点；如果没有有效的GPS定位信息，就不绘制节点；因为绘制其他节点需要知道我自己的GPS经纬度才能计算出它相对于我的方位和距离；
+    {
+        double coeffi = lora_out_max_ditance_Coefficient(lora, gps); // 计算每个像素代表的实际距离（像素/米）
+        double temp_bearing, temp_distance;//临时变量，用于接收被框选节点的方位角和距离，以便在右侧信息区显示
+        uint8_t result = LoRa_draw_all_online_nodes_with_Rectangle_can_switch(u8g2, coeffi, lora, gps, &temp_bearing, &temp_distance);
+        if(result) {
+            // 如果没有在线节点，右侧信息区显示"Online node: 0"，并且不显示方位角和距离
+            u8g2_SetFontPosBaseline(u8g2);
+            u8g2_SetFont(u8g2, u8g2_font_6x12_tr);
+            u8g2_DrawStr(u8g2, 58, 20, "Online node");
+            u8g2_SetFont(u8g2, u8g2_font_profont22_tf);
+            sprintf(u8g2_buf, "%d", 0);
+            u8g2_DrawStr(u8g2, 85, 39, u8g2_buf);
 
-    /* ── 3. 右侧信息区：──
-     * 利用屏幕右半部分显示辅助信息
-     */
-    u8g2_SetFontPosBaseline(u8g2);
-    u8g2_SetFont(u8g2, u8g2_font_6x12_tf);
-uint16_t temp_bearing = 325; // 从lora层获取的节点方位角，单位为度
-    sprintf(u8g2_buf, "bearing:%d%c", temp_bearing, 176);
-    u8g2_DrawStr(u8g2, 55, 21, u8g2_buf);
-uint32_t temp_distance = 25; // 从lora层获取的节点距离，单位为米
-    sprintf(u8g2_buf, "dist:%ldm", temp_distance);
-    u8g2_DrawStr(u8g2, 55, 34, u8g2_buf);
-int32_t temp_bmp280_RH = -1; // 从lora层获取的节点bmp280测量的相对高度，单位为米
-    sprintf(u8g2_buf, "RH:%ldm", temp_bmp280_RH);
-    u8g2_DrawStr(u8g2, 55, 46, u8g2_buf);
+            //开始导航按钮
+            u8g2_DrawRBox(u8g2, 64, 50, 51, 12, 4);
+            u8g2_SetBitmapMode(u8g2, 1);
+            u8g2_SetDrawColor(u8g2, 2);
+            u8g2_DrawXBMP(u8g2, 68, 51, 42, 9, image_lora_location);
+            return;
+        }
+        /* ── 3. 右侧信息区：──
+         * 利用屏幕右半部分显示辅助信息
+         */
+        u8g2_SetFontPosBaseline(u8g2);
+        u8g2_SetFont(u8g2, u8g2_font_6x12_tf);
+        sprintf(u8g2_buf, "bearing:%d%c", (uint16_t)temp_bearing, 176);
+        u8g2_DrawStr(u8g2, 55, 21, u8g2_buf);
+        sprintf(u8g2_buf, "dist:%ldm", (uint32_t)temp_distance);
+        u8g2_DrawStr(u8g2, 55, 34, u8g2_buf);
+        int32_t temp_bmp280_RH = -1; // 从lora层获取的节点bmp280测量的相对高度，单位为米
+        sprintf(u8g2_buf, "RH:%ldm", temp_bmp280_RH);
+        u8g2_DrawStr(u8g2, 55, 46, u8g2_buf);
+    }
+    else{
+        // 如果没有有效的GPS定位信息，显示一个提示信息
+        u8g2_SetDrawColor(u8g2, 1);
+        u8g2_SetFontMode(u8g2, 1);   // 透明背景
+        u8g2_DrawRBox(u8g2, 5, 31, 44, 13, 5);
+        u8g2_SetDrawColor(u8g2, 0);
+        u8g2_DrawStr(u8g2, 11, 41, "NO GPS");
+
+        /* ── 3. 右侧信息区：──
+         * 利用屏幕右半部分显示辅助信息
+         */
+        u8g2_SetFontPosBaseline(u8g2);
+        u8g2_SetDrawColor(u8g2, 1);
+        u8g2_SetFont(u8g2, u8g2_font_6x12_tf);
+        u8g2_DrawStr(u8g2, 55, 21, "bearing:NULL");
+        u8g2_DrawStr(u8g2, 55, 34, "dist:NULL");
+        int32_t temp_bmp280_RH = -1; // 从lora层获取的节点bmp280测量的相对高度，单位为米
+        sprintf(u8g2_buf, "RH:%ldm", temp_bmp280_RH);
+        u8g2_DrawStr(u8g2, 55, 46, u8g2_buf);
+    }
 //开始导航按钮
     u8g2_DrawRBox(u8g2, 64, 50, 51, 12, 4);
     u8g2_SetBitmapMode(u8g2, 1);
@@ -741,11 +843,15 @@ void UI_OLED_display(u8g2_t *u8g2, int8_t ui_root)
             UI_Top_info(u8g2);
             if(ui_lora == 0)
             {
-                UI_LoRa_location_display_1(u8g2, &node[0]);
+                UI_LoRa_location_display_1(u8g2, &lora, &gps);
             }
             else if(ui_lora == 1)
             {
-                UI_LoRa_location_display_2(u8g2, &node[0]);
+                UI_LoRa_location_display_2(u8g2, &lora, &gps);
+            }
+            else if(ui_lora == 2)
+            {
+                // UI_LoRa_location_display_3(u8g2, &lora, &gps);
             }
             break;
         default:

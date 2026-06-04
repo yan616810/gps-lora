@@ -223,8 +223,17 @@ size:$(PROJECT_dir).elf
 	$(SIZE) -A --radix=16 $<
 	@echo "-----------------------------"
 	$(SIZE) -A --radix=10 $<
-	@echo "-----------------------------"
-	$(SIZE) -B --radix=10 $<
+# 	@echo "-----------------------------"
+# 	$(SIZE) -B --radix=10 $<
+	@echo "---------------------------------"
+	@echo
+	@echo "       === FLASH Usage ==="
+	@$(SIZE) -A --radix=10 $< | awk 'BEGIN {printf "%-20s %12s\n", "Section", "Size(bytes)"; print "─────────────────────────────────"} /\.isr_vector|\.text|\.rodata|\.init_array|\.fini_array|\.data/ {printf "%-20s %12d\n", $$1, $$2; flash += $$2} END {print "─────────────────────────────────"; printf "%-20s %12d\n", "TOTAL", flash}'
+	@echo
+	@echo "---------------------------------"
+	@echo
+	@echo "       === RAM Usage ==="
+	@$(SIZE) -A --radix=10 $< | awk 'BEGIN {printf "%-20s %12s\n", "Section", "Size(bytes)"; print "─────────────────────────────────"} /\.data|\.bss/ {printf "%-20s %12d\n", $$1, $$2; ram += $$2} END {print "─────────────────────────────────"; printf "%-20s %12d\n", "TOTAL", ram}'
 
 
 ifeq ($(OUTPUT),hex)

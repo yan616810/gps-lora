@@ -176,13 +176,18 @@ void key_task(void)
 				break;
 			case 4://互联界面
 				if(key_value == 4){
-					// ui_lora = 1;//切换到界面二
-					lora_ui_last_node_display_2_flag=1;//切换上一个节点的显示二详细界面
+					if(ui_lora == 1)//选择节点界面
+					{
+						lora_ui_last_node_display_2_flag=1;//触发方框选中上一个节点的详细界面
+					}
 				}else if(key_value == 3){
-					ui_lora = 1;//切换到lora子界面二 
+					ui_lora +=1;//0->1->2->1->2->1...
+					if(ui_lora > 2) ui_lora = 1;
 				}else if(key_value == 2){
-					// ui_lora = 1;//切换到界面二
-					lora_ui_next_node_display_2_flag=1;//切换下一个节点的显示二详细界面
+					if(ui_lora == 1)//选择节点界面
+					{
+						lora_ui_next_node_display_2_flag=1;//触发方框选中下一个节点的详细界面
+					}
 				}else if(key_value == 'D'){
 					ui_lora = 0;//切换到界面一
 				}else if(key_value == 'L'){

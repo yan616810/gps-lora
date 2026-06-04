@@ -64,6 +64,20 @@
 
 #include "LoRa.h"
 
+
+uint8_t LoRa_get_nodes_num(LoRa_t *lora)
+{
+    uint8_t count = 0;
+    for (uint8_t i = 0; i < LORA_NODE_MAX; i++)
+    {
+        if (lora->LoRa_node_online_flag[i] == 1) // 只统计在线节点
+        {
+            count++;
+        }
+    }
+    return count;
+}
+
 static void LoRa_usart1_init(uint32_t baud)
 {
     RCC_APB2PeriphClockCmd(RCC_APB2Periph_USART1 | RCC_APB2Periph_GPIOA, ENABLE);

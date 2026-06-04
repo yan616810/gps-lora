@@ -17,6 +17,7 @@ volatile uint8_t bmp280_cnt=200;//bmp280读取计数器，达到一定值后读�
 volatile uint8_t qmc6309_cnt=20;//qmc6309读取计数器，达到一定值后读取一次qmc6309数据
 volatile uint8_t OLED_cnt=30;//帧率33HZ，传感器永远按自己的节奏采集，OLED 永远按自己的节奏刷新；采集和显示完全解耦
 volatile uint8_t RTC_cnt=50;//GPS同步RTC；从RTC计数器中的时间戳得到年月日等；
+volatile uint8_t lora_cnt=100;//LoRa数据转换，用于OLED显示位置共享界面所需要的各个节点的方位和距离
 
 /*u8g2*/
 u8g2_t u8g2;
@@ -29,12 +30,14 @@ BMP280_t bmp280        = {0};        // 全局 BMP280 实例
 QMC6309_t qmc6309={0};
 /*RTC*/
 Type_Struct_Timezone_and_UTCxTime Struct_RTC={0};//作用：1.用于首次初始RTC；2.用于读取RTC时间戳并保存转换得到的已修正月份/年份偏移的细分时间；
+/*LoRa*/
+LoRa_t lora = {0}; // 全局 LoRa 实例，初始化为0
 
 
 int8_t ui_root=0;//家
 uint8_t ui_switch_window_flag=0;//0:关闭切换界面 1:弹出切换界面
 /*LoRa界面及其子界面*/
-int8_t ui_lora=0;//LoRa位置全览图界面内的子界面，0是默认的全览图，1是显示具体节点信息
+int8_t ui_lora=0;//LoRa位置全览图界面内的子界面，0是默认的全览图，1是显示具体节点信息,2显示该节点的导航界面
 uint8_t lora_ui_last_node_display_2_flag=0;//0表示不触发显示节点详细信息；1表示传给LORA_UI触发函数内部切换一个节点详细信息节点来显示
 uint8_t lora_ui_next_node_display_2_flag=0;//0表示不触发显示节点详细信息
 
@@ -83,6 +86,7 @@ void TIM6_IRQHandler (void)
 		if(qmc6309_cnt<20)qmc6309_cnt++;
 		if(OLED_cnt<30)OLED_cnt++;
 		if(RTC_cnt<50)RTC_cnt++;
+		if(lora_cnt<100)lora_cnt++;
         TIM_ClearITPendingBit(TIM6, TIM_IT_Update);
     }
 }
@@ -132,7 +136,7 @@ void task_proc(void)
 		}
 		else printf("QMC6309 Read error! Error code: %d\r\n", error_code);
 	}
-	if(RTC_cnt==50)//放在OLED_cnt其那面，保证刚向的上电时，显示的时间是从RTC读出来的，而不是初始时的默认的结构体参数UTC+8 2004-08-01 18:23:45
+	if(RTC_cnt==50)//放在OLED_cnt上面，保证刚上电时，显示的时间是从RTC读出来的，而不是初始时的默认的结构体参数UTC+8 2004-08-01 18:23:45
 	{
 		RTC_cnt=0;
 		GPS_RTC_time_task(&Struct_RTC);
@@ -160,6 +164,20 @@ int main(void)
 	LoRa_init(9600, 9600);
     // usart1_init();
     printf("USART1 initialized successfully!\r\n");
+/*LoRa*/
+	lora.LoRa_node_online_flag[2]=1;//模拟测试，默认节点2在线
+	lora.node[2].LoRa_id=2;
+	lora.node[2].latitude=36726339;
+	lora.node[2].longitude=115529936;
+	lora.node[2].speed=100;
+	lora.node[2].pressure_pa=101325;
+
+	lora.LoRa_node_online_flag[5]=1;//模拟测试，默认节点5在线
+	lora.node[5].LoRa_id=5;
+	lora.node[5].latitude=36720339;
+	lora.node[5].longitude=115536936;
+	lora.node[5].speed=40;
+	lora.node[5].pressure_pa=91325;
 /*按键初始化*/
     key_init();
 /*RTC*/
@@ -248,6 +266,7 @@ int main(void)
 		}
 	}
 	else printf("QMC6309 initialized successfully!\r\n");
+
 /*定时器6初始化，周期1ms，用于任务调度*/    
     timer6_init();
     for(;;)
