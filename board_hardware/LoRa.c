@@ -256,7 +256,6 @@ static uint8_t  s_pc_len = 0;
 /* ─── 位置帧发送计时（每 50 次 task 调用 = 5s 发一次）─── */
 #define POS_SEND_INTERVAL  50u
 static uint8_t s_pos_tick = 0;
-static const uint8_t pos_send_timestamp_table[16] ={0,5,10,15,20,25,30,35,40,45,50,55,60,65,70,75}; /* 16 个 ID 的位置帧发送时间错开，避免碰撞 */
 
 /* 保存外部传入的主结构体指针，供中断回调使用 */
 static LoRa_t *s_lora = NULL;
@@ -551,16 +550,14 @@ void LoRa_proto_task(LoRa_t *lora, GPS_t *gps, BMP280_t *bmp, Type_Struct_Timezo
         }
     }
 
-    /* ── 2. 定时发送本机位置帧（5s 一次）── */
-    // s_pos_tick++;
-    // if (s_pos_tick >= POS_SEND_INTERVAL) {
-    //     s_pos_tick = 0;
+    /* ── 2. 定时发送本机位置帧（每 5s 一次，POS_SEND_INTERVAL=50，100ms×50=5s）── */
+    s_pos_tick++;
+    if (s_pos_tick >= POS_SEND_INTERVAL) {
+        s_pos_tick = 0;
 
-    /* 仅在 GPS 有效定位时 */
-    GPS_t *g = (GPS_t *)gps;
-    if (g->lwgps_handle.is_valid && g->lwgps_handle.fix) {
-        if( ((rtc->UTCxTime.tm_sec % 10) >= pos_send_timestamp_table[LORA_MY_ID]) && ((rtc->UTCxTime.tm_sec % 10) < pos_send_timestamp_table[LORA_MY_ID+1])) { /* 根据 ID 错开发送时间，减少碰撞 */            
-            
+        /* 仅在 GPS 有效定位时才发送，避免广播无效数据干扰其他节点的在线状态判断 */
+        GPS_t *g = (GPS_t *)gps;
+        if (g->lwgps_handle.is_valid && g->lwgps_handle.fix) {
             int32_t  lat_e6    = 0;
             int32_t  lon_e6    = 0;
             uint16_t spd_x10   = 0;
@@ -582,7 +579,7 @@ void LoRa_proto_task(LoRa_t *lora, GPS_t *gps, BMP280_t *bmp, Type_Struct_Timezo
                 pres_pa = (uint32_t)b->Pressure_ture;
             }
 
-            _send_pos_frame(lat_e6, lon_e6, spd_x10, pres_pa);//只有当自身 GPS 定位有效时才发送位置帧，避免广播无效数据干扰其他节点的在线状态判断
+            _send_pos_frame(lat_e6, lon_e6, spd_x10, pres_pa);
         }
     }
 }
