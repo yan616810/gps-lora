@@ -104,3 +104,10 @@ LoRa 互联界面的节点总览。设备根据收到的其他节点的经纬度
     1.测试第一版硬件
 # 2026/2/22
     1.第二版硬件可以正常通过主控编程的引脚进行开关机控制；
+
+
+## 六、外部工具
+
+1. 3轴磁力计校准python脚本：https://github.com/yan616810/Three-axis_Magnetometer_Calibration
+2. 12864 OLED屏幕的PC模拟器：https://github.com/yan616810/u8g2_PC_Simulator
+
